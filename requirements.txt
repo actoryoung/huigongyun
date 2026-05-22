@@ -5,9 +5,11 @@
 # - Excel parsing and data shaping
 # - PDF/table extraction
 # - Material normalization and fuzzy matching
+# - Lightweight web demo shell
 
 pandas>=2.2.0
 openpyxl>=3.1.5
 rapidfuzz>=3.9.0
 pdfplumber>=0.11.4
 pydantic>=2.7.0
+Flask>=3.0.0

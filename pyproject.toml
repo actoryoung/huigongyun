@@ -10,13 +10,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
 authors = [{name = "Copilot"}]
-dependencies = []
+dependencies = ["Flask>=3.0.0"]
 
 [project.scripts]
 huigongyun = "huigongyun.cli:main"
+huigongyun-web = "huigongyun.webapp:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0", "ruff>=0.6.0", "mypy>=1.11.0"]
+web = ["Flask>=3.0.0"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

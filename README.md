@@ -23,6 +23,7 @@
 - 已补柜体清单生成接口：独立 builder 输出柜体列表与未解析记号
 - 已补基础校验的“待确认记号”：未解析柜号、缺规格、缺品牌会进入 Issues
 - 校验报告会保留 `pending_*` 记号，便于后续数据格式下发后回填
+- 已补轻量 Web 演示壳：上传 Excel、运行、查看结果、下载 JSON / Excel
 
 ## 运行方式
 
@@ -50,12 +51,12 @@ huigongyun --help
 
 1. 支持更复杂的多表格 Excel 模板
 2. 扩展图纸 / PDF / 图片输入
-3. 补充 Web 演示壳和人机协同回灌
+3. 补充人机协同回灌和演示脚本收尾
 
 ## 当前计划进程
 
 - 已完成：Excel 解析、物料归一、柜体清单、逐柜 BOM、项目汇总、基础校验、JSON/Excel 导出。
-- 未完成：复杂表格模板、图纸/PDF/图片输入、Web 演示壳、人机协同回灌、文档与演示脚本收尾。
+- 未完成：复杂表格模板、图纸/PDF/图片输入、人机协同回灌、文档与演示脚本收尾。
 - 暂缓：复杂支持和高级校验先不做，保留接口与 `pending_*` 记号，等待后续数据格式正式下发。
 
 ## 运行验证
@@ -64,6 +65,14 @@ huigongyun --help
 python -m pip install -e .[dev]
 pytest
 python -m huigongyun /path/to/input.xlsx --output-dir ./output
+huigongyun-web
+```
+
+Web 演示壳也可以用下面方式安装和启动：
+
+```bash
+python -m pip install -e .[web]
+huigongyun-web
 ```
 
 ## 当前输出
