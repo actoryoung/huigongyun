@@ -13,6 +13,7 @@ class DefaultProjectValidator:
         issues.extend(self._validate_cabinets(result))
         issues.extend(self._validate_bom_lines(result))
         issues.extend(self._validate_duplicates(result))
+        issues.extend(self._validate_pending_marks(result))
         result.issues = issues
         return result
 
@@ -49,11 +50,59 @@ class DefaultProjectValidator:
                 )
         return issues
 
+    def _validate_pending_marks(self, result: ProjectResult) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        metadata = result.project.metadata if isinstance(result.project.metadata, dict) else {}
+        unresolved_rows = metadata.get("cabinet_index_unresolved_rows", [])
+        for unresolved in unresolved_rows:
+            if not isinstance(unresolved, dict):
+                continue
+            issues.append(
+                ValidationIssue(
+                    issue_type=str(unresolved.get("reason", "pending_marker")),
+                    severity="info",
+                    message="Unresolved cabinet marker retained for later data confirmation.",
+                    cabinet_no="UNASSIGNED",
+                    details={
+                        "sheet_name": unresolved.get("sheet_name"),
+                        "row_no": unresolved.get("row_no"),
+                        "marker": unresolved.get("marker"),
+                    },
+                )
+            )
+
+        for bom_line in result.bom_lines:
+            material = bom_line.material
+            if not material.spec:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="pending_material_spec",
+                        severity="info",
+                        message="Material spec is not finalized yet.",
+                        cabinet_no=bom_line.cabinet_no,
+                        material_name=material.name,
+                        details={"marker": "spec:pending"},
+                    )
+                )
+            if not material.brand and not material.manufacturer:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="pending_material_brand",
+                        severity="info",
+                        message="Material brand is not finalized yet.",
+                        cabinet_no=bom_line.cabinet_no,
+                        material_name=material.name,
+                        details={"marker": "brand:pending"},
+                    )
+                )
+
+        return issues
+
     def _validate_bom_lines(self, result: ProjectResult) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []
         for bom_line in result.bom_lines:
             material = bom_line.material
-            if not bom_line.cabinet_no:
+            if not bom_line.cabinet_no or bom_line.cabinet_no == "UNASSIGNED":
                 issues.append(
                     ValidationIssue(
                         issue_type="missing_bom_cabinet_no",

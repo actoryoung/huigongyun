@@ -27,3 +27,19 @@ def test_validation_detects_duplicate_bom_lines_and_export_creates_excel(tmp_pat
     exported = load_workbook(excel_path, data_only=True)
     assert "BOM" in exported.sheetnames
     assert "Issues" in exported.sheetnames
+
+
+def test_validation_marks_unassigned_cabinet_lines(tmp_path):
+    workbook_path = Path(tmp_path) / "missing_cabinet.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "主元件清单"
+    sheet.append(["柜号", "物料名称", "数量"])
+    sheet.append(["", "断路器", 1])
+    workbook.save(workbook_path)
+
+    pipeline = build_default_pipeline()
+    result = pipeline.run(build_context(input_path=str(workbook_path), output_dir=str(tmp_path / "out2")))
+
+    issue_types = {issue.issue_type for issue in result.issues}
+    assert "missing_bom_cabinet_no" in issue_types

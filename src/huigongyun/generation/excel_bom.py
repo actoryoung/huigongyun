@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, SourceRef
+from ..indexing.cabinets import CabinetIndexBuilder
+from ..models import BomLine, MaterialRecord, ProjectDocument, ProjectResult, SourceRef
 
 
 class ExcelCabinetAndBomExtractor:
@@ -23,7 +24,7 @@ class ExcelCabinetAndBomExtractor:
         result = ProjectResult(project=document)
         sheets = document.metadata.get("sheets", []) if isinstance(document.metadata, dict) else []
 
-        cabinet_index: OrderedDict[str, CabinetRecord] = OrderedDict()
+        cabinet_result = CabinetIndexBuilder().build(document)
         bom_lines: list[BomLine] = []
 
         for sheet in sheets:
@@ -34,20 +35,6 @@ class ExcelCabinetAndBomExtractor:
 
                 row_no = int(record.get("_row_no", 0) or 0)
                 cabinet_no = self._first_text(record, self.CABINET_KEYS) or "UNASSIGNED"
-                cabinet = cabinet_index.get(cabinet_no)
-                if cabinet is None:
-                    cabinet = CabinetRecord(
-                        cabinet_no=cabinet_no,
-                        cabinet_type=self._first_text(record, self.CABINET_TYPE_KEYS),
-                        rated_current=self._first_text(record, self.RATED_CURRENT_KEYS),
-                        quantity=self._parse_quantity(self._first_value(record, self.QUANTITY_KEYS), default=1),
-                        confidence=0.6,
-                        remarks=f"parsed from {sheet_name}",
-                    )
-                    cabinet.sources.append(self._build_source(document, sheet_name, row_no, record))
-                    cabinet_index[cabinet_no] = cabinet
-                else:
-                    self._merge_cabinet_fields(cabinet, record, document, sheet_name, row_no)
 
                 material_name = self._first_text(record, self.MATERIAL_NAME_KEYS)
                 if not material_name:
@@ -72,31 +59,15 @@ class ExcelCabinetAndBomExtractor:
                     )
                 )
 
-        if not cabinet_index and bom_lines:
-            for bom_line in bom_lines:
-                if bom_line.cabinet_no not in cabinet_index:
-                    cabinet_index[bom_line.cabinet_no] = CabinetRecord(cabinet_no=bom_line.cabinet_no, confidence=0.4)
-
-        result.cabinets = list(cabinet_index.values())
+        result.cabinets = cabinet_result.cabinets
         result.bom_lines = bom_lines
+        if cabinet_result.notes:
+            result.project.metadata = {
+                **result.project.metadata,
+                "cabinet_index_notes": cabinet_result.notes,
+                "cabinet_index_unresolved_rows": cabinet_result.unresolved_rows,
+            }
         return result
-
-    def _merge_cabinet_fields(
-        self,
-        cabinet: CabinetRecord,
-        record: dict[str, Any],
-        document: ProjectDocument,
-        sheet_name: str,
-        row_no: int,
-    ) -> None:
-        if not cabinet.cabinet_type:
-            cabinet.cabinet_type = self._first_text(record, self.CABINET_TYPE_KEYS)
-        if not cabinet.rated_current:
-            cabinet.rated_current = self._first_text(record, self.RATED_CURRENT_KEYS)
-        if cabinet.quantity <= 0:
-            cabinet.quantity = self._parse_quantity(self._first_value(record, self.QUANTITY_KEYS), default=1)
-        cabinet.sources.append(self._build_source(document, sheet_name, row_no, record))
-        cabinet.confidence = max(cabinet.confidence, 0.6)
 
     def _build_source(self, document: ProjectDocument, sheet_name: str, row_no: int, record: dict[str, Any]) -> SourceRef:
         file_name = Path(document.files[0]).name if document.files else document.project_name

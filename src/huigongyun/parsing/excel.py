@@ -6,7 +6,6 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-from ..exceptions import ParseError
 from ..models import ProjectDocument
 
 
@@ -42,6 +41,18 @@ class ExcelProjectParser:
                 },
             )
 
+        if source.is_dir():
+            return ProjectDocument(
+                project_name=path.stem or "project",
+                files=[str(source)],
+                metadata={
+                    "input_kind": "directory",
+                    "parse_status": "ambiguous",
+                    "candidate_files": self._list_excel_candidates(source),
+                    "message": "Directory contains one or more Excel files; choose a specific workbook before parsing.",
+                },
+            )
+
         if source.suffix.lower() not in {".xlsx", ".xlsm", ".xltx", ".xltm"}:
             return ProjectDocument(
                 project_name=source.stem,
@@ -71,31 +82,43 @@ class ExcelProjectParser:
         if path.is_file():
             return path
         if path.is_dir():
-            for candidate in sorted(path.iterdir()):
-                if candidate.suffix.lower() in {".xlsx", ".xlsm", ".xltx", ".xltm"}:
-                    return candidate
+            if self._list_excel_candidates(path):
+                return path
         return None
+
+    def _list_excel_candidates(self, path: Path) -> list[str]:
+        return [
+            str(candidate)
+            for candidate in sorted(path.iterdir())
+            if candidate.is_file() and candidate.suffix.lower() in {".xlsx", ".xlsm", ".xltx", ".xltm"}
+        ]
 
     def _snapshot_sheet(self, sheet_name: str, worksheet: Any) -> SheetSnapshot:
         rows = list(worksheet.iter_rows(values_only=True))
-        cleaned_rows = [self._clean_row(row) for row in rows if any(cell is not None and cell != "" for cell in row)]
+        cleaned_rows: list[tuple[int, list[Any]]] = []
+        for row_no, row in enumerate(rows, start=1):
+            cleaned_row = self._clean_row(row)
+            if any(cell is not None and cell != "" for cell in cleaned_row):
+                cleaned_rows.append((row_no, cleaned_row))
         if cleaned_rows:
-            headers = [str(value).strip() if value is not None else "" for value in cleaned_rows[0]]
+            header_row_no, header_row = cleaned_rows[0]
+            headers = [str(value).strip() if value is not None else "" for value in header_row]
             data_rows = cleaned_rows[1:]
             sample_rows = data_rows[:5]
-            records = [self._row_to_record(headers, row, index + 2, sheet_name) for index, row in enumerate(data_rows)]
+            records = [self._row_to_record(headers, row, row_no, sheet_name) for row_no, row in data_rows]
         else:
             headers = []
             sample_rows = []
             records = []
-        column_count = max((len(row) for row in cleaned_rows), default=0)
+            header_row_no = 0
+        column_count = max((len(row) for _, row in cleaned_rows), default=0)
         return SheetSnapshot(
             name=sheet_name,
             row_count=len(cleaned_rows),
             data_row_count=len(records),
             column_count=column_count,
             headers=headers,
-            sample_rows=sample_rows,
+            sample_rows=[row for _, row in sample_rows],
             records=records,
         )
 

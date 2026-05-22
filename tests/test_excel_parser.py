@@ -24,6 +24,7 @@ def test_excel_project_parser_reads_sheet_metadata(tmp_path):
     assert document.metadata["sheets"][0]["name"] == "主元件清单"
     assert document.metadata["sheets"][0]["headers"] == ["柜号", "物料名称", "数量"]
     assert document.metadata["sheets"][0]["sample_rows"][0] == ["K1", "断路器", 2]
+    assert document.metadata["sheets"][0]["records"][0]["_row_no"] == 2
 
 
 def test_default_project_parser_uses_excel_parser_for_workbooks(tmp_path):
@@ -39,3 +40,18 @@ def test_default_project_parser_uses_excel_parser_for_workbooks(tmp_path):
 
     assert document.metadata["input_kind"] == "excel"
     assert document.metadata["sheets"][0]["records"][0]["柜号"] == "K1"
+
+
+def test_excel_project_parser_preserves_original_row_numbers(tmp_path):
+    workbook_path = Path(tmp_path) / "row_numbers.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "主元件清单"
+    sheet.append([])
+    sheet.append(["柜号", "物料名称", "数量"])
+    sheet.append(["K1", "断路器", 2])
+    workbook.save(workbook_path)
+
+    document = ExcelProjectParser().parse(str(workbook_path))
+
+    assert document.metadata["sheets"][0]["records"][0]["_row_no"] == 3

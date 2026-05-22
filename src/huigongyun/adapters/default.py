@@ -10,6 +10,7 @@ from ..validation.default import DefaultProjectValidator
 from ..parsing.excel import ExcelProjectParser
 from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
 from ..export.spreadsheet import ProjectExporter
+from ..normalization.default import DefaultMaterialNormalizer as _DefaultMaterialNormalizer
 
 
 class DefaultProjectParser(ProjectParser):
@@ -33,15 +34,7 @@ class DefaultCabinetExtractor(CabinetExtractor):
 
 class DefaultMaterialNormalizer(MaterialNormalizer):
     def normalize(self, result: ProjectResult) -> ProjectResult:
-        for bom_line in result.bom_lines:
-            material = bom_line.material
-            material.normalized_name = material.normalized_name or material.name.strip()
-            material.normalized_spec = material.normalized_spec or (material.spec.strip() if material.spec else None)
-
-        for material in result.summary:
-            material.normalized_name = material.normalized_name or material.name.strip()
-            material.normalized_spec = material.normalized_spec or (material.spec.strip() if material.spec else None)
-        return result
+        return _DefaultMaterialNormalizer().normalize(result)
 
 
 class DefaultBomGenerator(BomGenerator):
