@@ -1,3 +1,16 @@
+# Agent Roster
+
+- `orchestrator`: coordinate tasks, planning, and delegation.
+- `code_guardian`: review, testing, and rollback safety.
+- `etl_ingestion`: document parsing and field extraction.
+- `algorithm`: material normalization, matching, and rule logic.
+- `web_ui`: lightweight UI prototyping.
+- `release_docs`: README, usage, and deliverable docs.
+- `research`: read-only repo exploration and issue triage.
+
+Usage guidance:
+- Keep implementation focused on the MVP path first: Excel parsing, cabinet extraction, BOM generation, validation, and export.
+- Prefer small adapter interfaces so parser, normalizer, generator, validator, and exporter can be swapped independently.
 # AGENTS 索引（中文）
 
 原则：

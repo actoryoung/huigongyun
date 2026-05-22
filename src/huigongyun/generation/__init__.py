@@ -1,0 +1,1 @@
+"""BOM generation layer scaffolding."""
