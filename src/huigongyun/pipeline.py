@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, PipelineContext, ProjectParser, Validator
+from .interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, PipelineContext, ProjectParser, QuoteGenerator, Validator
 from .models import ProjectResult
 
 
@@ -12,6 +12,7 @@ class Pipeline:
     extractor: CabinetExtractor
     normalizer: MaterialNormalizer
     bom_generator: BomGenerator
+    quote_generator: QuoteGenerator
     validator: Validator
     exporter: Exporter
 
@@ -20,6 +21,7 @@ class Pipeline:
         result = self.extractor.extract(document)
         result = self.normalizer.normalize(result)
         result = self.bom_generator.generate(result)
+        result = self.quote_generator.generate(result)
         result = self.validator.validate(result)
         result.outputs = self.exporter.export(result, context.output_dir)
         return result

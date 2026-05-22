@@ -31,6 +31,8 @@ class ProjectExporter:
         self._write_cabinets_sheet(workbook, result)
         self._write_bom_sheet(workbook, result)
         self._write_summary_sheet(workbook, result)
+        self._write_quote_sheet(workbook, result)
+        self._write_quote_summary_sheet(workbook, result)
         self._write_issues_sheet(workbook, result)
 
         if "Sheet" in workbook.sheetnames:
@@ -129,3 +131,45 @@ class ProjectExporter:
                 issue.material_name,
                 json.dumps(issue.details, ensure_ascii=False, default=str),
             ])
+
+    def _write_quote_sheet(self, workbook: Workbook, result: ProjectResult) -> None:
+        sheet = workbook.create_sheet("Quote")
+        sheet.append([
+            "cabinet_no",
+            "material_name",
+            "spec",
+            "unit",
+            "quantity",
+            "brand",
+            "unit_price",
+            "subtotal",
+            "price_source",
+            "price_confidence",
+            "price_missing",
+            "remarks",
+        ])
+        for quote_line in result.quote_lines:
+            sheet.append([
+                quote_line.cabinet_no,
+                quote_line.material_name,
+                quote_line.spec,
+                quote_line.unit,
+                quote_line.quantity,
+                quote_line.brand,
+                quote_line.unit_price,
+                quote_line.subtotal,
+                quote_line.price_source,
+                quote_line.price_confidence,
+                quote_line.price_missing,
+                quote_line.remarks,
+            ])
+
+    def _write_quote_summary_sheet(self, workbook: Workbook, result: ProjectResult) -> None:
+        sheet = workbook.create_sheet("QuoteSummary")
+        sheet.append(["metric", "value"])
+        for key, value in result.quote_totals.items():
+            if key == "cabinet_totals" and isinstance(value, dict):
+                for cabinet_no, subtotal in value.items():
+                    sheet.append([f"cabinet_total:{cabinet_no}", subtotal])
+            else:
+                sheet.append([key, value])

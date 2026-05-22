@@ -20,6 +20,7 @@ class ExcelCabinetAndBomExtractor:
     UNIT_KEYS = ("单位", "unit")
     BRAND_KEYS = ("品牌", "厂家", "生产厂家", "manufacturer")
     LONG_LEAD_TIME_KEYS = ("长交期", "长交期标记", "交期提示", "lead_time", "lead_time_flag")
+    PRICE_SHEET_HINTS = ("价格表", "报价表", "单价表", "价格清单")
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
         result = ProjectResult(project=document)
@@ -30,6 +31,8 @@ class ExcelCabinetAndBomExtractor:
 
         for sheet in sheets:
             sheet_name = str(sheet.get("name", "sheet"))
+            if self._is_price_sheet(sheet_name, sheet):
+                continue
             for record in sheet.get("records", []):
                 if not isinstance(record, dict):
                     continue
@@ -120,6 +123,15 @@ class ExcelCabinetAndBomExtractor:
             return value
         text = str(value).strip().lower()
         return text in {"1", "true", "yes", "y", "是", "长交期", "有", "需确认", "x"}
+
+    def _is_price_sheet(self, sheet_name: str, sheet: dict[str, Any]) -> bool:
+        lower_name = sheet_name.lower()
+        if any(hint in sheet_name for hint in self.PRICE_SHEET_HINTS):
+            return True
+        if any(hint in lower_name for hint in {"price", "pricing", "quote"}):
+            return True
+        headers = {str(header).strip() for header in sheet.get("headers", [])}
+        return any(key in headers for key in {"单价", "unit_price", "价格"})
 
 
 class ExcelBomAggregator:

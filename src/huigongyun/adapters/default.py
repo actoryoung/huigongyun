@@ -4,13 +4,14 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from ..interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, ProjectParser, Validator
+from ..interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, ProjectParser, QuoteGenerator, Validator
 from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, ValidationIssue
 from ..validation.default import DefaultProjectValidator
 from ..parsing.excel import ExcelProjectParser
 from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
 from ..export.spreadsheet import ProjectExporter
 from ..normalization.default import DefaultMaterialNormalizer as _DefaultMaterialNormalizer
+from ..pricing.default import DefaultQuoteGenerator as _DefaultQuoteGenerator
 
 
 class DefaultProjectParser(ProjectParser):
@@ -50,6 +51,11 @@ class DefaultBomGenerator(BomGenerator):
                 )
             )
         return ExcelBomAggregator().generate(result)
+
+
+class DefaultQuoteGenerator(QuoteGenerator):
+    def generate(self, result: ProjectResult) -> ProjectResult:
+        return _DefaultQuoteGenerator().generate(result)
 
 
 class DefaultValidator(Validator):

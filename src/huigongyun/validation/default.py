@@ -15,6 +15,7 @@ class DefaultProjectValidator:
         issues.extend(self._validate_duplicates(result))
         issues.extend(self._validate_brand_conflicts(result))
         issues.extend(self._validate_long_lead_time(result))
+        issues.extend(self._validate_quote_prices(result))
         issues.extend(self._validate_pending_marks(result))
         result.issues = issues
         return result
@@ -212,6 +213,22 @@ class DefaultProjectValidator:
                         cabinet_no=bom_line.cabinet_no,
                         material_name=material.name,
                         details={"marker": "long_lead_time"},
+                    )
+                )
+        return issues
+
+    def _validate_quote_prices(self, result: ProjectResult) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        for quote_line in result.quote_lines:
+            if quote_line.price_missing:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="missing_price",
+                        severity="info",
+                        message="Quote line has no confirmed unit price yet.",
+                        cabinet_no=quote_line.cabinet_no,
+                        material_name=quote_line.material_name,
+                        details={"price_source": quote_line.price_source or "missing"},
                     )
                 )
         return issues

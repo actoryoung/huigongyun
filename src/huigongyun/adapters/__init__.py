@@ -6,6 +6,7 @@ from .default import (
     DefaultExporter,
     DefaultMaterialNormalizer,
     DefaultProjectParser,
+    DefaultQuoteGenerator,
     DefaultValidator,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "DefaultExporter",
     "DefaultMaterialNormalizer",
     "DefaultProjectParser",
+    "DefaultQuoteGenerator",
     "DefaultValidator",
 ]

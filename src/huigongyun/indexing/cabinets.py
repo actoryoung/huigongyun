@@ -24,6 +24,7 @@ class CabinetIndexBuilder:
     CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名")
     CABINET_TYPE_KEYS = ("柜型", "cabinet_type", "类型")
     RATED_CURRENT_KEYS = ("额定电流", "电流", "In", "额定电流(A)")
+    PRICE_SHEET_HINTS = ("价格表", "报价表", "单价表", "价格清单")
     DIMENSIONS_KEYS = ("外形尺寸", "尺寸", "柜体尺寸", "dimensions")
     WIDTH_KEYS = ("宽", "宽度", "柜宽", "width")
     HEIGHT_KEYS = ("高", "高度", "柜高", "height")
@@ -41,6 +42,8 @@ class CabinetIndexBuilder:
 
         for sheet in sheets:
             sheet_name = str(sheet.get("name", "sheet"))
+            if self._is_price_sheet(sheet_name, sheet):
+                continue
             for record in sheet.get("records", []):
                 if not isinstance(record, dict):
                     continue
@@ -161,3 +164,12 @@ class CabinetIndexBuilder:
             return float(value)
         except (TypeError, ValueError):
             return float(default)
+
+    def _is_price_sheet(self, sheet_name: str, sheet: dict[str, Any]) -> bool:
+        lower_name = sheet_name.lower()
+        if any(hint in sheet_name for hint in self.PRICE_SHEET_HINTS):
+            return True
+        if any(hint in lower_name for hint in {"price", "pricing", "quote"}):
+            return True
+        headers = {str(header).strip() for header in sheet.get("headers", [])}
+        return any(key in headers for key in {"单价", "unit_price", "价格"})

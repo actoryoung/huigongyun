@@ -40,6 +40,12 @@ class BomGenerator(Protocol):
 
 
 @runtime_checkable
+class QuoteGenerator(Protocol):
+    def generate(self, result: ProjectResult) -> ProjectResult:
+        """Generate quote lines and totals from BOM and pricing inputs."""
+
+
+@runtime_checkable
 class Validator(Protocol):
     def validate(self, result: ProjectResult) -> ProjectResult:
         """Validate BOM completeness and consistency."""

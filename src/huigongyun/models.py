@@ -44,6 +44,11 @@ class MaterialRecord:
     source: SourceRef | None = None
     confidence: float = 0.0
     long_lead_time: bool = False
+    unit_price: float | None = None
+    price_source: str | None = None
+    price_confidence: float = 0.0
+    subtotal: float | None = None
+    price_missing: bool = False
     remarks: str | None = None
 
 
@@ -84,11 +89,29 @@ class UserEdit:
 
 
 @dataclass(slots=True)
+class QuoteLine:
+    cabinet_no: str
+    material_name: str
+    spec: str | None = None
+    unit: str | None = None
+    quantity: float = 0.0
+    brand: str | None = None
+    unit_price: float | None = None
+    subtotal: float | None = None
+    price_source: str | None = None
+    price_confidence: float = 0.0
+    price_missing: bool = False
+    remarks: str | None = None
+
+
+@dataclass(slots=True)
 class ProjectResult:
     project: ProjectDocument
     cabinets: list[CabinetRecord] = field(default_factory=list)
     bom_lines: list[BomLine] = field(default_factory=list)
     summary: list[MaterialRecord] = field(default_factory=list)
+    quote_lines: list[QuoteLine] = field(default_factory=list)
+    quote_totals: dict[str, Any] = field(default_factory=dict)
     issues: list[ValidationIssue] = field(default_factory=list)
     user_edits: list[UserEdit] = field(default_factory=list)
     outputs: dict[str, Any] = field(default_factory=dict)

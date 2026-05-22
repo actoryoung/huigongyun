@@ -6,6 +6,7 @@ from .adapters import (
     DefaultExporter,
     DefaultMaterialNormalizer,
     DefaultProjectParser,
+    DefaultQuoteGenerator,
     DefaultValidator,
 )
 from .interfaces import PipelineContext
@@ -18,6 +19,7 @@ def build_default_pipeline() -> Pipeline:
         extractor=DefaultCabinetExtractor(),
         normalizer=DefaultMaterialNormalizer(),
         bom_generator=DefaultBomGenerator(),
+        quote_generator=DefaultQuoteGenerator(),
         validator=DefaultValidator(),
         exporter=DefaultExporter(),
     )
