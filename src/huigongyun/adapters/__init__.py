@@ -9,6 +9,7 @@ from .default import (
     DefaultQuoteGenerator,
     DefaultValidator,
 )
+from ..parsing.registry import ExcelSourceParser, ScaffoldSourceParser, SourceParserRegistry, build_default_source_registry
 
 __all__ = [
     "DefaultBomGenerator",
@@ -18,4 +19,8 @@ __all__ = [
     "DefaultProjectParser",
     "DefaultQuoteGenerator",
     "DefaultValidator",
+    "ExcelSourceParser",
+    "ScaffoldSourceParser",
+    "SourceParserRegistry",
+    "build_default_source_registry",
 ]

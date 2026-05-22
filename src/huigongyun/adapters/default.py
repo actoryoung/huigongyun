@@ -6,8 +6,8 @@ from pathlib import Path
 
 from ..interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, ProjectParser, QuoteGenerator, Validator
 from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, ValidationIssue
+from ..parsing.registry import SourceParserRegistry, build_default_source_registry
 from ..validation.default import DefaultProjectValidator
-from ..parsing.excel import ExcelProjectParser
 from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
 from ..export.spreadsheet import ProjectExporter
 from ..normalization.default import DefaultMaterialNormalizer as _DefaultMaterialNormalizer
@@ -15,11 +15,13 @@ from ..pricing.default import DefaultQuoteGenerator as _DefaultQuoteGenerator
 
 
 class DefaultProjectParser(ProjectParser):
+    def __init__(self, registry: SourceParserRegistry | None = None) -> None:
+        self.registry = registry or build_default_source_registry()
+
     def parse(self, input_path: str) -> ProjectDocument:
         path = Path(input_path)
-        excel_parser = ExcelProjectParser()
         if path.is_file() or path.is_dir():
-            return excel_parser.parse(str(path))
+            return self.registry.parse(str(path))
         return ProjectDocument(project_name=path.stem, files=[str(path)])
 
 

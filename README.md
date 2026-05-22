@@ -1,6 +1,6 @@
 # 低压电气成套智能报价清单生成系统
 
-这是一个面向低压电气成套项目的 MVP 原型，当前已经具备从 Excel 主元器件清单生成逐柜 BOM、项目汇总、基础校验和 JSON / Excel 导出的最小闭环，后续继续补强规则与解析能力：
+这是一个面向低压电气成套项目的 MVP 原型。当前项目已经完成 Excel 主流程最小闭环，并开始把非 Excel 输入、OCR、检索与相似匹配能力以接口和骨架的方式预留出来，方便后续逐步接入：
 
 - 项目资料解析
 - 柜体识别与逐柜 BOM 生成
@@ -8,22 +8,35 @@
 - 报价汇总与校验报告
 - 人机协同修正与导出
 
+## 当前进度
+
+- 已完成 Excel 主元器件清单解析、柜体清单生成、逐柜 BOM、项目汇总 BOM、基础校验、报价最小闭环、JSON / Excel 导出。
+- 已完成轻量 Web 演示壳与最小人机协同回灌闭环，可对 BOM / 柜体字段做人工修正后重导出。
+- 已完成 PDF、Word、图片、DWG 的解析适配器骨架，以及 OCR / 文档抽取 / 历史检索 / 相似匹配的接口预留。
+- 暂未实现的部分主要是图纸深度识别、多模态 OCR、RAG 检索、复杂商务报价和高级版本差异分析。
+
 ## 当前能力
 
-- 提供核心数据模型
-- 提供解析、归一、生成、校验、导出的接口协议
-- 提供默认空实现，方便后续逐步替换
-- 提供 CLI 入口，可用于跑通最小流程
-- 已完成 Excel 解析入口：可读取工作簿元数据、sheet 名称、表头、样例行和原始记录
-- 已完成从 Excel 行中抽取柜体和 BOM 明细，并可生成项目汇总 BOM
-- 已补基础校验与 JSON/Excel 导出
-- 已有单元测试覆盖解析、生成、校验与导出
-- 目录输入会返回歧义标记，不再静默选择第一份工作簿；原始 Excel 行号会被保留
-- 已补轻量物料归一层：同义词、品牌别名和规格清洗
-- 已补柜体清单生成接口：独立 builder 输出柜体列表与未解析记号
-- 已补基础校验的“待确认记号”：未解析柜号、缺规格、缺品牌会进入 Issues
-- 校验报告会保留 `pending_*` 记号，便于后续数据格式下发后回填
-- 已补轻量 Web 演示壳：上传 Excel、运行、查看结果、下载 JSON / Excel
+- 核心流程：输入接入 → 结构化解析 → 柜体/BOM 生成 → 归一 → 报价 → 校验 → 导出
+- 模块化设计：解析、归一、生成、报价、校验、导出均通过接口协议连接，便于替换实现
+- 资料覆盖：Excel 已正式实现，PDF / Word / 图片 / DWG 已预留骨架
+- 检索与匹配：已预留 OCR、文档抽取、历史案例检索、相似物料匹配接口
+- 追溯能力：保留来源行号、来源文件、价格来源和 `pending_*` 记号
+- 交互能力：支持 CLI 与轻量 Web 演示壳，支持最小人工修正回灌
+
+## 模块简介
+
+- `src/huigongyun/models.py`: 核心数据结构，承载项目、柜体、物料、报价、校验与导出结果
+- `src/huigongyun/interfaces.py`: 全局协议层，定义解析、抽取、归一、生成、校验、导出与检索接口
+- `src/huigongyun/parsing/`: 输入解析层，Excel 为正式实现，其余格式为骨架实现
+- `src/huigongyun/retrieval/`: 历史案例检索与相似匹配接口预留
+- `src/huigongyun/normalization/`: 物料名称、规格、品牌和单位的轻量归一
+- `src/huigongyun/generation/`: 柜体与 BOM 生成与汇总
+- `src/huigongyun/pricing/`: 报价最小闭环与价格表读取
+- `src/huigongyun/validation/`: 基础校验、待确认记号和风险提示
+- `src/huigongyun/export/`: JSON / Excel 导出
+- `src/huigongyun/webapp.py`: 轻量 Web 演示壳与回灌入口
+- `tests/`: 当前最小闭环的回归测试
 
 ## 运行方式
 
@@ -34,30 +47,40 @@ huigongyun --help
 
 ## 目录说明
 
-- `src/huigongyun/models.py`: 核心数据结构
-- `src/huigongyun/interfaces.py`: MVP 阶段的能力接口
+- `src/huigongyun/models.py`: 项目、柜体、物料、报价、校验和导出结果的数据模型
+- `src/huigongyun/interfaces.py`: 主流程接口与二级抽取/检索接口
 - `src/huigongyun/bootstrap.py`: 默认流水线组装
 - `src/huigongyun/pipeline.py`: 端到端编排
-- `src/huigongyun/adapters/`: 默认空实现与后续适配器入口
-- `src/huigongyun/parsing/`: 解析层骨架
-- `src/huigongyun/normalization/`: 归一层骨架
-- `src/huigongyun/generation/`: 生成层骨架
-- `src/huigongyun/validation/`: 校验层骨架
-- `src/huigongyun/export/`: 导出层骨架
+- `src/huigongyun/adapters/`: 默认适配器与未来替换入口
+- `src/huigongyun/parsing/`: Excel、PDF、Word、图片、DWG 的解析入口与骨架
+- `src/huigongyun/retrieval/`: 历史案例检索与相似匹配接口
+- `src/huigongyun/normalization/`: 轻量归一层
+- `src/huigongyun/generation/`: 柜体与 BOM 生成层
+- `src/huigongyun/pricing/`: 报价生成层
+- `src/huigongyun/validation/`: 校验层
+- `src/huigongyun/export/`: 导出层
 - `src/huigongyun/cli.py`: 命令行入口
-- `tests/`: 最小烟测
+- `tests/`: 当前回归测试
 
 ## 下一步
 
-1. 支持更复杂的多表格 Excel 模板
-2. 扩展图纸 / PDF / 图片输入
-3. 补充人机协同回灌和演示脚本收尾
+1. 接入 OCR / 文档抽取的真实实现
+2. 接入历史案例检索与相似物料匹配
+3. 扩展图纸 / PDF / 图片输入的真实解析逻辑
+4. 补充更完整的人机协同回灌、演示脚本和性能评估
 
 ## 当前计划进程
 
-- 已完成：Excel 解析、物料归一、柜体清单、逐柜 BOM、项目汇总、基础校验、JSON/Excel 导出。
-- 未完成：复杂表格模板、图纸/PDF/图片输入、人机协同回灌、文档与演示脚本收尾。
+- 已完成：Excel 解析、柜体清单、逐柜 BOM、项目汇总、归一、报价最小闭环、基础校验、JSON/Excel 导出、Web 演示壳、最小回灌闭环。
+- 已预留：PDF / Word / 图片 / DWG 解析骨架，OCR / 文档抽取 / 历史检索 / 相似匹配接口。
+- 未完成：真实多格式解析、复杂商务报价、高级校验、变更分析、演示脚本与完整评估报告。
 - 暂缓：复杂支持和高级校验先不做，保留接口与 `pending_*` 记号，等待后续数据格式正式下发。
+
+## 给 qi 的简要总结
+
+- 项目已经跑通 Excel 主闭环，能够生成柜体、逐柜 BOM、项目汇总、报价和导出文件。
+- 当前的重点不在“再堆功能”，而在“把后续能力的接口和边界定清楚”，这样多格式输入、OCR、检索和大模型都能按需插入。
+- 现在适合总结的关键词是：可运行原型、分层架构、接口预留、可追溯、最小报价闭环、Web 回灌、逐步扩展。
 
 ## 运行验证
 
