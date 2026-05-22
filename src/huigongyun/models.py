@@ -21,6 +21,8 @@ class CabinetRecord:
     cabinet_no: str
     cabinet_type: str | None = None
     rated_current: str | None = None
+    dimensions: str | None = None
+    circuit_count: int | None = None
     quantity: int = 1
     inbound_outbound: str | None = None
     grounding_mode: str | None = None
@@ -72,10 +74,21 @@ class ValidationIssue:
 
 
 @dataclass(slots=True)
+class UserEdit:
+    scope: str
+    target: str
+    field_name: str
+    old_value: str | None
+    new_value: str | None
+    note: str | None = None
+
+
+@dataclass(slots=True)
 class ProjectResult:
     project: ProjectDocument
     cabinets: list[CabinetRecord] = field(default_factory=list)
     bom_lines: list[BomLine] = field(default_factory=list)
     summary: list[MaterialRecord] = field(default_factory=list)
     issues: list[ValidationIssue] = field(default_factory=list)
+    user_edits: list[UserEdit] = field(default_factory=list)
     outputs: dict[str, Any] = field(default_factory=dict)

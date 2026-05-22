@@ -24,6 +24,13 @@ class CabinetIndexBuilder:
     CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名")
     CABINET_TYPE_KEYS = ("柜型", "cabinet_type", "类型")
     RATED_CURRENT_KEYS = ("额定电流", "电流", "In", "额定电流(A)")
+    DIMENSIONS_KEYS = ("外形尺寸", "尺寸", "柜体尺寸", "dimensions")
+    WIDTH_KEYS = ("宽", "宽度", "柜宽", "width")
+    HEIGHT_KEYS = ("高", "高度", "柜高", "height")
+    DEPTH_KEYS = ("深", "深度", "柜深", "depth")
+    CIRCUIT_COUNT_KEYS = ("回路数", "回路", "circuits", "circuit_count")
+    INBOUND_OUTBOUND_KEYS = ("进出线方式", "进线方式", "出线方式", "进出线", "inbound_outbound")
+    GROUNDING_MODE_KEYS = ("接地方式", "grounding_mode")
     QUANTITY_KEYS = ("数量", "qty", "数量(台)", "件数")
 
     def build(self, document: ProjectDocument) -> CabinetIndexResult:
@@ -56,7 +63,11 @@ class CabinetIndexBuilder:
                         cabinet_no=cabinet_no,
                         cabinet_type=self._first_text(record, self.CABINET_TYPE_KEYS),
                         rated_current=self._first_text(record, self.RATED_CURRENT_KEYS),
+                        dimensions=self._first_dimension_text(record),
+                        circuit_count=self._parse_optional_int(self._first_value(record, self.CIRCUIT_COUNT_KEYS)),
                         quantity=self._parse_quantity(self._first_value(record, self.QUANTITY_KEYS), default=1),
+                        inbound_outbound=self._first_text(record, self.INBOUND_OUTBOUND_KEYS),
+                        grounding_mode=self._first_text(record, self.GROUNDING_MODE_KEYS),
                         confidence=0.6,
                         remarks=f"parsed from {sheet_name}",
                     )
@@ -82,8 +93,16 @@ class CabinetIndexBuilder:
             cabinet.cabinet_type = self._first_text(record, self.CABINET_TYPE_KEYS)
         if not cabinet.rated_current:
             cabinet.rated_current = self._first_text(record, self.RATED_CURRENT_KEYS)
+        if not cabinet.dimensions:
+            cabinet.dimensions = self._first_dimension_text(record)
+        if cabinet.circuit_count is None:
+            cabinet.circuit_count = self._parse_optional_int(self._first_value(record, self.CIRCUIT_COUNT_KEYS))
         if cabinet.quantity <= 0:
             cabinet.quantity = self._parse_quantity(self._first_value(record, self.QUANTITY_KEYS), default=1)
+        if not cabinet.inbound_outbound:
+            cabinet.inbound_outbound = self._first_text(record, self.INBOUND_OUTBOUND_KEYS)
+        if not cabinet.grounding_mode:
+            cabinet.grounding_mode = self._first_text(record, self.GROUNDING_MODE_KEYS)
         cabinet.sources.append(self._build_source(document, sheet_name, row_no, record))
         cabinet.confidence = max(cabinet.confidence, 0.6)
 
@@ -112,6 +131,28 @@ class CabinetIndexBuilder:
             return None
         text = str(value).strip()
         return text or None
+
+    def _first_dimension_text(self, record: dict[str, Any]) -> str | None:
+        explicit = self._first_text(record, self.DIMENSIONS_KEYS)
+        if explicit:
+            return explicit
+
+        width = self._first_text(record, self.WIDTH_KEYS)
+        height = self._first_text(record, self.HEIGHT_KEYS)
+        depth = self._first_text(record, self.DEPTH_KEYS)
+        parts = [part for part in (width, height, depth) if part]
+        if len(parts) == 3:
+            return "×".join(parts)
+        return None
+
+    def _parse_optional_int(self, value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            parsed = int(float(value))
+        except (TypeError, ValueError):
+            return None
+        return parsed
 
     def _parse_quantity(self, value: Any, default: float = 1) -> float:
         if value in (None, ""):

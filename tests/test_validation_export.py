@@ -43,3 +43,21 @@ def test_validation_marks_unassigned_cabinet_lines(tmp_path):
 
     issue_types = {issue.issue_type for issue in result.issues}
     assert "missing_bom_cabinet_no" in issue_types
+
+
+def test_validation_detects_brand_conflicts_and_long_lead_time(tmp_path):
+    workbook_path = Path(tmp_path) / "validation_flags.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "主元件清单"
+    sheet.append(["柜号", "柜型", "物料名称", "规格型号", "单位", "数量", "品牌", "长交期"])
+    sheet.append(["K1", "进线柜", "断路器", "MCCB-250A", "台", 1, "施耐德", "是"])
+    sheet.append(["K1", "进线柜", "断路器", "MCCB-250A", "台", 1, "西门子", "是"])
+    workbook.save(workbook_path)
+
+    pipeline = build_default_pipeline()
+    result = pipeline.run(build_context(input_path=str(workbook_path), output_dir=str(tmp_path / "out3")))
+
+    issue_types = {issue.issue_type for issue in result.issues}
+    assert "brand_conflict" in issue_types
+    assert "long_lead_time" in issue_types

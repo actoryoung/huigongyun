@@ -13,6 +13,8 @@ class DefaultProjectValidator:
         issues.extend(self._validate_cabinets(result))
         issues.extend(self._validate_bom_lines(result))
         issues.extend(self._validate_duplicates(result))
+        issues.extend(self._validate_brand_conflicts(result))
+        issues.extend(self._validate_long_lead_time(result))
         issues.extend(self._validate_pending_marks(result))
         result.issues = issues
         return result
@@ -166,6 +168,52 @@ class DefaultProjectValidator:
                     )
                 )
 
+        return issues
+
+    def _validate_brand_conflicts(self, result: ProjectResult) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        brand_map: dict[tuple[str, str, str], set[str]] = {}
+
+        for bom_line in result.bom_lines:
+            material = bom_line.material
+            canonical_name = material.normalized_name or material.name or ""
+            canonical_spec = material.normalized_spec or material.spec or ""
+            brand = material.brand or material.manufacturer or ""
+            if not canonical_name or not brand:
+                continue
+            key = (bom_line.cabinet_no or "", canonical_name, canonical_spec)
+            brand_map.setdefault(key, set()).add(brand)
+
+        for (cabinet_no, material_name, spec), brands in brand_map.items():
+            if len(brands) > 1:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="brand_conflict",
+                        severity="warning",
+                        message="The same material appears with multiple brands in the same cabinet scope.",
+                        cabinet_no=cabinet_no or None,
+                        material_name=material_name,
+                        details={"spec": spec, "brands": sorted(brands)},
+                    )
+                )
+
+        return issues
+
+    def _validate_long_lead_time(self, result: ProjectResult) -> list[ValidationIssue]:
+        issues: list[ValidationIssue] = []
+        for bom_line in result.bom_lines:
+            material = bom_line.material
+            if material.long_lead_time:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="long_lead_time",
+                        severity="info",
+                        message="Material has a long lead time flag and should be confirmed before quotation.",
+                        cabinet_no=bom_line.cabinet_no,
+                        material_name=material.name,
+                        details={"marker": "long_lead_time"},
+                    )
+                )
         return issues
 
     def _bom_key(self, bom_line: BomLine) -> tuple[str, str, str, str]:

@@ -45,13 +45,28 @@ class ProjectExporter:
 
     def _write_cabinets_sheet(self, workbook: Workbook, result: ProjectResult) -> None:
         sheet = workbook.create_sheet("Cabinets")
-        sheet.append(["cabinet_no", "cabinet_type", "rated_current", "quantity", "confidence", "remarks"])
+        sheet.append([
+            "cabinet_no",
+            "cabinet_type",
+            "rated_current",
+            "dimensions",
+            "circuit_count",
+            "quantity",
+            "inbound_outbound",
+            "grounding_mode",
+            "confidence",
+            "remarks",
+        ])
         for cabinet in result.cabinets:
             sheet.append([
                 cabinet.cabinet_no,
                 cabinet.cabinet_type,
                 cabinet.rated_current,
+                cabinet.dimensions,
+                cabinet.circuit_count,
                 cabinet.quantity,
+                cabinet.inbound_outbound,
+                cabinet.grounding_mode,
                 cabinet.confidence,
                 cabinet.remarks,
             ])

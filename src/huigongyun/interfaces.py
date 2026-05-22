@@ -13,6 +13,15 @@ class ProjectParser(Protocol):
 
 
 @runtime_checkable
+class SourceParser(Protocol):
+    def supports(self, input_path: str) -> bool:
+        """Report whether this parser can handle the given source path."""
+
+    def parse(self, input_path: str) -> ProjectDocument:
+        """Parse a specific source format into a normalized document model."""
+
+
+@runtime_checkable
 class CabinetExtractor(Protocol):
     def extract(self, document: ProjectDocument) -> ProjectResult:
         """Extract cabinet candidates from a parsed project document."""

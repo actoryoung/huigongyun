@@ -8,9 +8,16 @@ from pathlib import Path
 from flask import Flask, abort, render_template_string, request, send_file, url_for
 
 from .bootstrap import build_context, build_default_pipeline
+from .export.spreadsheet import ProjectExporter
+from .generation.excel_bom import ExcelBomAggregator
+from .models import UserEdit
+from .normalization.default import DefaultMaterialNormalizer
+from .validation.default import DefaultProjectValidator
 
 
-RUN_STORAGE: dict[str, Path] = {}
+RUN_STORAGE: dict[str, dict[str, object]] = {}
+ALLOWED_CABINET_EDIT_FIELDS = {"cabinet_type", "rated_current", "dimensions", "circuit_count", "quantity", "inbound_outbound", "grounding_mode", "remarks"}
+ALLOWED_BOM_EDIT_FIELDS = {"name", "spec", "unit", "quantity", "brand", "manufacturer", "long_lead_time", "remarks"}
 
 
 def create_app() -> Flask:
@@ -38,24 +45,9 @@ def create_app() -> Flask:
         output_dir = run_dir / "output"
         pipeline = build_default_pipeline()
         result = pipeline.run(build_context(str(input_path), str(output_dir)))
-        RUN_STORAGE[run_id] = run_dir
+        RUN_STORAGE[run_id] = {"run_dir": run_dir, "result": result}
 
-        summary = {
-          "run_id": run_id,
-            "project_name": result.project.project_name,
-            "cabinet_count": len(result.cabinets),
-            "bom_line_count": len(result.bom_lines),
-            "summary_count": len(result.summary),
-            "issue_count": len(result.issues),
-            "outputs": result.outputs,
-          "download_links": {
-            key: url_for("download_artifact", run_id=run_id, filename=Path(path).name)
-            for key, path in result.outputs.items()
-          },
-            "issues": [asdict(issue) for issue in result.issues],
-            "cabinets": [asdict(cabinet) for cabinet in result.cabinets],
-            "bom_lines": [asdict(bom_line) for bom_line in result.bom_lines],
-        }
+        summary = _build_summary(run_id, result)
 
         return render_template_string(
             INDEX_TEMPLATE,
@@ -63,12 +55,85 @@ def create_app() -> Flask:
             error=None,
         )
 
+    @app.post("/edit/<run_id>")
+    def edit_result(run_id: str) -> str:
+        run_state = RUN_STORAGE.get(run_id)
+        if not run_state:
+            abort(404)
+
+        result = run_state.get("result")
+        if result is None:
+            abort(404)
+
+        scope = (request.form.get("scope") or "").strip()
+        field_name = (request.form.get("field_name") or "").strip()
+        target = (request.form.get("target") or "").strip()
+        value = (request.form.get("value") or "").strip()
+
+        if scope == "cabinet":
+            if field_name not in ALLOWED_CABINET_EDIT_FIELDS:
+                abort(400)
+            cabinet = next((item for item in result.cabinets if item.cabinet_no == target), None)
+            if cabinet is None:
+                abort(404)
+            old_value = getattr(cabinet, field_name)
+            setattr(cabinet, field_name, _coerce_value(field_name, value, old_value))
+            result.user_edits.append(
+                UserEdit(
+                    scope="cabinet",
+                    target=target,
+                    field_name=field_name,
+                    old_value=None if old_value is None else str(old_value),
+                    new_value=value or None,
+                    note="manual correction",
+                )
+            )
+        elif scope == "bom":
+            if field_name not in ALLOWED_BOM_EDIT_FIELDS:
+                abort(400)
+            material_name = (request.form.get("material_name") or "").strip()
+            bom_line = next(
+                (
+                    item
+                    for item in result.bom_lines
+                    if item.cabinet_no == target and item.material.name == material_name
+                ),
+                None,
+            )
+            if bom_line is None:
+                abort(404)
+            material = bom_line.material
+            old_value = getattr(material, field_name)
+            setattr(material, field_name, _coerce_value(field_name, value, old_value))
+            result.user_edits.append(
+                UserEdit(
+                    scope="bom",
+                    target=f"{target}:{material_name}",
+                    field_name=field_name,
+                    old_value=None if old_value is None else str(old_value),
+                    new_value=value or None,
+                    note="manual correction",
+                )
+            )
+        else:
+            abort(400)
+
+        DefaultMaterialNormalizer().normalize(result)
+        ExcelBomAggregator().generate(result)
+        result.issues = DefaultProjectValidator().validate(result).issues
+
+        output_dir = Path(run_state["run_dir"]) / "output"
+        result.outputs = ProjectExporter().export(result, str(output_dir))
+
+        summary = _build_summary(run_id, result)
+        return render_template_string(INDEX_TEMPLATE, last_result=summary, error=None)
+
     @app.get("/download/<run_id>/<path:filename>")
     def download_artifact(run_id: str, filename: str):
-        run_dir = RUN_STORAGE.get(run_id)
-        if run_dir is None:
+        run_state = RUN_STORAGE.get(run_id)
+        if run_state is None:
             abort(404)
-        file_path = run_dir / "output" / filename
+        file_path = Path(run_state["run_dir"]) / "output" / filename
         if not file_path.exists():
             abort(404)
         return send_file(file_path, as_attachment=True)
@@ -80,6 +145,42 @@ def main() -> int:
     app = create_app()
     app.run(host="127.0.0.1", port=5000, debug=False)
     return 0
+
+
+def _build_summary(run_id: str, result) -> dict[str, object]:
+    return {
+        "run_id": run_id,
+        "project_name": result.project.project_name,
+        "cabinet_count": len(result.cabinets),
+        "bom_line_count": len(result.bom_lines),
+        "summary_count": len(result.summary),
+        "issue_count": len(result.issues),
+        "outputs": result.outputs,
+        "download_links": {
+            key: url_for("download_artifact", run_id=run_id, filename=Path(path).name)
+            for key, path in result.outputs.items()
+        },
+        "issues": [asdict(issue) for issue in result.issues],
+        "cabinets": [asdict(cabinet) for cabinet in result.cabinets],
+        "bom_lines": [asdict(bom_line) for bom_line in result.bom_lines],
+        "user_edits": [asdict(edit) for edit in result.user_edits],
+    }
+
+
+def _coerce_value(field_name: str, value: str, old_value):
+    if field_name == "quantity":
+        try:
+            return float(value) if "." in value else int(value)
+        except ValueError:
+            return old_value
+    if field_name == "circuit_count":
+        try:
+            return int(float(value))
+        except ValueError:
+            return old_value
+    if field_name == "long_lead_time":
+        return value.strip().lower() in {"1", "true", "yes", "y", "是", "有", "x"}
+    return value
 
 
 INDEX_TEMPLATE = """
@@ -194,8 +295,23 @@ INDEX_TEMPLATE = """
     }
     a { color: var(--accent); }
     .footnote { margin-top: 18px; color: var(--muted); font-size: 13px; }
+    .inline-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .inline-form input {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--text);
+      padding: 11px 12px;
+      margin-top: 8px;
+    }
     @media (max-width: 980px) {
       .hero { grid-template-columns: 1fr; }
+      .inline-form { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -265,6 +381,25 @@ INDEX_TEMPLATE = """
           <div class="item"><strong>无</strong><span>当前样例未生成待确认项。</span></div>
           {% endif %}
         </div>
+      </div>
+
+      <div class="section">
+        <h2>人工修正</h2>
+        <form class="upload" method="post" action="/edit/{{ last_result.run_id }}">
+          <div class="dropzone">
+            <div class="inline-form">
+              <label class="item"><strong>范围</strong><input name="scope" value="bom" placeholder="bom / cabinet"></label>
+              <label class="item"><strong>目标柜号</strong><input name="target" value="K1" placeholder="柜号"></label>
+              <label class="item"><strong>物料名</strong><input name="material_name" value="断路器" placeholder="仅 bom 范围需要"></label>
+              <label class="item"><strong>字段</strong><input name="field_name" value="brand" placeholder="brand / spec / remarks"></label>
+            </div>
+            <div class="item" style="margin-top: 10px;">
+              <strong>新值</strong>
+              <input name="value" value="施耐德" placeholder="修正后的值">
+            </div>
+          </div>
+          <button type="submit">应用修正并重导出</button>
+        </form>
       </div>
     </div>
     {% endif %}

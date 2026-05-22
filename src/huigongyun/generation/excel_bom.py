@@ -19,6 +19,7 @@ class ExcelCabinetAndBomExtractor:
     SPEC_KEYS = ("规格型号", "规格", "型号", "型号规格", "spec")
     UNIT_KEYS = ("单位", "unit")
     BRAND_KEYS = ("品牌", "厂家", "生产厂家", "manufacturer")
+    LONG_LEAD_TIME_KEYS = ("长交期", "长交期标记", "交期提示", "lead_time", "lead_time_flag")
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
         result = ProjectResult(project=document)
@@ -49,6 +50,7 @@ class ExcelCabinetAndBomExtractor:
                     manufacturer=self._first_text(record, self.BRAND_KEYS),
                     source=self._build_source(document, sheet_name, row_no, record),
                     confidence=0.7,
+                    long_lead_time=self._parse_bool(self._first_value(record, self.LONG_LEAD_TIME_KEYS)),
                 )
                 bom_lines.append(
                     BomLine(
@@ -110,6 +112,14 @@ class ExcelCabinetAndBomExtractor:
             return float(value)
         except (TypeError, ValueError):
             return float(default)
+
+    def _parse_bool(self, value: Any) -> bool:
+        if value in (None, ""):
+            return False
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        return text in {"1", "true", "yes", "y", "是", "长交期", "有", "需确认", "x"}
 
 
 class ExcelBomAggregator:
