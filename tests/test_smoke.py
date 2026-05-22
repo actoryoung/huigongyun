@@ -11,6 +11,8 @@ def test_default_pipeline_smoke(tmp_path):
     assert result.cabinets
     assert result.bom_lines
     assert result.outputs["json"].endswith("demo_result.json")
+    assert result.outputs["excel"].endswith("demo_result.xlsx")
 
     payload = json.loads((tmp_path / "out" / "demo_result.json").read_text(encoding="utf-8"))
     assert payload["outputs"]["json"].endswith("demo_result.json")
+    assert payload["outputs"]["excel"].endswith("demo_result.xlsx")

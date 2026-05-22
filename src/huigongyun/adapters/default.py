@@ -6,16 +6,26 @@ from pathlib import Path
 
 from ..interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, ProjectParser, Validator
 from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, ValidationIssue
+from ..validation.default import DefaultProjectValidator
+from ..parsing.excel import ExcelProjectParser
+from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
+from ..export.spreadsheet import ProjectExporter
 
 
 class DefaultProjectParser(ProjectParser):
     def parse(self, input_path: str) -> ProjectDocument:
         path = Path(input_path)
+        excel_parser = ExcelProjectParser()
+        if path.is_file() or path.is_dir():
+            return excel_parser.parse(str(path))
         return ProjectDocument(project_name=path.stem, files=[str(path)])
 
 
 class DefaultCabinetExtractor(CabinetExtractor):
     def extract(self, document: ProjectDocument) -> ProjectResult:
+        if document.metadata.get("input_kind") == "excel":
+            return ExcelCabinetAndBomExtractor().extract(document)
+
         result = ProjectResult(project=document)
         result.cabinets.append(CabinetRecord(cabinet_no="TBD-01", cabinet_type="unknown", remarks="placeholder"))
         return result
@@ -23,9 +33,14 @@ class DefaultCabinetExtractor(CabinetExtractor):
 
 class DefaultMaterialNormalizer(MaterialNormalizer):
     def normalize(self, result: ProjectResult) -> ProjectResult:
+        for bom_line in result.bom_lines:
+            material = bom_line.material
+            material.normalized_name = material.normalized_name or material.name.strip()
+            material.normalized_spec = material.normalized_spec or (material.spec.strip() if material.spec else None)
+
         for material in result.summary:
-            material.normalized_name = material.normalized_name or material.name
-            material.normalized_spec = material.normalized_spec or material.spec
+            material.normalized_name = material.normalized_name or material.name.strip()
+            material.normalized_spec = material.normalized_spec or (material.spec.strip() if material.spec else None)
         return result
 
 
@@ -41,29 +56,14 @@ class DefaultBomGenerator(BomGenerator):
                     risk_tags=["needs-implementation"],
                 )
             )
-        return result
+        return ExcelBomAggregator().generate(result)
 
 
 class DefaultValidator(Validator):
     def validate(self, result: ProjectResult) -> ProjectResult:
-        if not result.cabinets:
-            result.issues.append(
-                ValidationIssue(
-                    issue_type="missing_cabinet",
-                    severity="warning",
-                    message="No cabinet extracted yet; scaffold placeholder used.",
-                )
-            )
-        return result
+        return DefaultProjectValidator().validate(result)
 
 
 class DefaultExporter(Exporter):
     def export(self, result: ProjectResult, output_dir: str) -> dict[str, str]:
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        json_path = output_path / f"{result.project.project_name}_result.json"
-        result.outputs = {"json": str(json_path)}
-        payload = asdict(result)
-        json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        return result.outputs
+        return ProjectExporter().export(result, output_dir)
