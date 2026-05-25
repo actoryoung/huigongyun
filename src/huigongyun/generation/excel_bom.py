@@ -1,3 +1,10 @@
+"""Excel 特定的 BOM 与机柜提取辅助工具。
+
+该提取器期望 `ProjectDocument` 的 `metadata['sheets']` 字段包含结构化行
+（由 Excel 解析器产生的中间表示）。提取器返回包含 `cabinets` 和
+`bom_lines` 的 `ProjectResult`。
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -23,6 +30,15 @@ class ExcelCabinetAndBomExtractor:
     PRICE_SHEET_HINTS = ("价格表", "报价表", "单价表", "价格清单")
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
+        """从 `ProjectDocument` 的 `sheets` 中提取机柜与 BOM 行。
+
+        算法要点：
+          - 跳过价格表（`_is_price_sheet`）；
+          - 遍历每个数据记录，尝试解析机柜号与物料名称；
+          - 构造 `MaterialRecord` 并基于行信息生成 `BomLine`（包含来源与置信度）；
+          - 使用 `CabinetIndexBuilder` 收集机柜级元数据并把其结果赋回 `ProjectResult`。
+        """
+
         result = ProjectResult(project=document)
         sheets = document.metadata.get("sheets", []) if isinstance(document.metadata, dict) else []
 
@@ -136,8 +152,14 @@ class ExcelCabinetAndBomExtractor:
 
 class ExcelBomAggregator:
     """Aggregate BOM lines into a project-level summary."""
-
     def generate(self, result: ProjectResult) -> ProjectResult:
+        """将 `bom_lines` 聚合为 `summary` 列表。
+
+        聚合逻辑：以 `(normalized_name, normalized_spec, brand)` 为 key 聚合，
+        对数量求和，置信度取最大值，若任一组成项有 `long_lead_time`，则保留该标记。
+        返回修改后的 `ProjectResult`（在 `summary` 字段写入聚合结果）。
+        """
+
         summary_map: dict[tuple[str, str, str], MaterialRecord] = {}
 
         for bom_line in result.bom_lines:
