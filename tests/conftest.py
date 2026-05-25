@@ -51,3 +51,26 @@ def app_client():
         yield client
 
 # TODO: Add real sample .xlsx files under tests/fixtures/ for integration and e2e tests.
+
+
+@pytest.fixture
+def fake_db_mem():
+    """提供一个简单的内存字典，用于模拟 DB 存储（供 fake conn 使用）。"""
+    return {}
+
+
+@pytest.fixture
+def sample_run_summary():
+    """返回一个简单的运行摘要样例，用于任务层测试。"""
+    return {
+        "project_name": "sample",
+        "cabinet_count": 0,
+        "bom_line_count": 0,
+        "summary_count": 0,
+        "issue_count": 0,
+        "outputs": {},
+        "issues": [],
+        "user_edits": [],
+    }
+
+# TODO: Replace placeholder fixtures with real sample files under tests/fixtures/
