@@ -102,3 +102,40 @@ huigongyun-web
 
 - `*_result.json`: 项目结构化结果，包含柜体、BOM、汇总、校验和导出路径
 - `*_result.xlsx`: 结构化 Excel 结果，包含 `Project`、`Cabinets`、`BOM`、`Summary`、`Issues` 工作表
+
+## Postgres: 配置、持久化与备份（开发/演示用）
+
+项目在 `docker-compose.yml` 中包含了一个 `postgres` 服务，用于保存异步任务的运行记录和审计信息。
+
+- 密码与凭据：当前示例使用环境变量 `POSTGRES_PASSWORD`（在 `docker-compose.yml` 中为 `secret`）。**上线前请更改该密码，并使用 Docker secrets 或外部密钥管理服务来注入凭据，切勿把明文凭据提交到版本库。**
+
+- 持久化：数据库数据存储在名为 `postgres_data` 的 Docker 卷中（映射到容器内 `/var/lib/postgresql/data`）。此卷在 `docker-compose.yml` 中声明以保证容器重启/重建时数据不丢失。
+
+- 备份与恢复：可使用逻辑备份（pg_dump）或卷归档两种方式。
+
+ 逻辑备份（推荐）：
+
+```bash
+# 在宿主机上导出数据库（生成 SQL 文件）
+docker compose exec -T postgres pg_dump -U huigongyun huigongyun > backup.sql
+
+# 恢复
+docker compose exec -T postgres psql -U huigongyun -d huigongyun < backup.sql
+```
+
+ 卷级别归档（备份原始文件）：
+
+```bash
+# 将卷内容打包到宿主当前目录
+docker run --rm -v huigongyun_postgres_data:/data -v $(pwd):/backup alpine \
+	sh -c "cd /data && tar czf /backup/postgres_data.tgz ."
+
+# 恢复（将归档复制到新卷）
+docker volume create restore_tmp
+docker run --rm -v restore_tmp:/data -v $(pwd):/backup alpine \
+	sh -c "cd /data && tar xzf /backup/postgres_data.tgz"
+```
+
+注意：卷级别备份直接操作底层数据文件，可能在 Postgres 活动期间出现一致性问题；对于生产环境，请优先使用 `pg_dump` 或 PostgreSQL 提供的物理备份工具（如 `pg_basebackup`）并在维护窗口内进行。
+
+更多：`docker-compose.yml` 中包含了注释说明，指出了密码更改、数据卷和备份示例的用法。

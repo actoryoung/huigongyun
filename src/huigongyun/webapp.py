@@ -1,5 +1,19 @@
+"""轻量 Flask 演示 Web 应用与交互壳。
+
+该模块提供一个最小化的 Flask 应用，演示流水线的上传/运行流程以及
+简单的人机交互（人工修正）。关键端点：
+  - POST /run：接收上传文件并入队或同步运行流水线。
+  - GET /status/<run_id>：检查运行是否完成并返回摘要。
+  - GET /download/<run_id>/<filename>：下载已导出的工件（若为本地文件）。
+  - POST /edit/<run_id>：对内存结果应用人工修改并重新导出。
+
+该应用在 `RUN_STORAGE` 中保留短期运行状态以便演示；生产环境应使用
+持久化存储。
+"""
+
 from __future__ import annotations
 
+import os
 import tempfile
 import uuid
 from dataclasses import asdict
@@ -13,6 +27,12 @@ from .generation.excel_bom import ExcelBomAggregator
 from .models import UserEdit
 from .normalization.default import DefaultMaterialNormalizer
 from .validation.default import DefaultProjectValidator
+from . import tasks
+try:
+  from .storage.postgres_store import save_run_summary_if_configured
+  _HAS_PG_STORE = True
+except Exception:
+  _HAS_PG_STORE = False
 
 
 RUN_STORAGE: dict[str, dict[str, object]] = {}
@@ -31,6 +51,12 @@ def create_app() -> Flask:
             error=None,
         )
 
+    def _app_doc_endpoints() -> str:
+      """开发用的端点简要说明（非 HTTP 路由）。
+
+      用于代码注释与文档内部说明，不作为对外路由暴露。
+      """
+
     @app.post("/run")
     def run_pipeline() -> str:
         uploaded = request.files.get("input_file")
@@ -42,18 +68,33 @@ def create_app() -> Flask:
         input_path = run_dir / uploaded.filename
         uploaded.save(input_path)
 
+        # If Celery is available, enqueue the pipeline run; otherwise run synchronously.
+        if getattr(tasks, "_HAS_CELERY", False):
+          # schedule async task (worker must share filesystem or object store)
+          task = tasks.process_project.delay(str(run_dir), uploaded.filename, run_id) if hasattr(tasks.process_project, "delay") else tasks.process_project(str(run_dir), uploaded.filename, run_id)
+          RUN_STORAGE[run_id] = {"run_dir": str(run_dir), "task_id": getattr(task, "id", None), "status": "queued", "result": None}
+          # show queued summary
+          summary = {"run_id": run_id, "project_name": "queued", "cabinet_count": 0, "bom_line_count": 0, "summary_count": 0, "issue_count": 0, "outputs": {}}
+          return render_template_string(INDEX_TEMPLATE, last_result=summary, error=None)
+
+        # synchronous fallback
         output_dir = run_dir / "output"
         pipeline = build_default_pipeline()
         result = pipeline.run(build_context(str(input_path), str(output_dir)))
-        RUN_STORAGE[run_id] = {"run_dir": run_dir, "result": result}
+        RUN_STORAGE[run_id] = {"run_dir": str(run_dir), "result": result}
 
         summary = _build_summary(run_id, result)
 
-        return render_template_string(
-            INDEX_TEMPLATE,
-            last_result=summary,
-            error=None,
-        )
+        # persist to Postgres if available
+        try:
+          if _HAS_PG_STORE:
+            # convert to dict for storage
+            persist_payload = summary if isinstance(summary, dict) else _build_summary(run_id, result)
+            save_run_summary_if_configured(run_id, str(run_dir), persist_payload)
+        except Exception:
+          pass
+
+        return render_template_string(INDEX_TEMPLATE, last_result=summary, error=None)
 
     @app.post("/edit/<run_id>")
     def edit_result(run_id: str) -> str:
@@ -138,33 +179,79 @@ def create_app() -> Flask:
             abort(404)
         return send_file(file_path, as_attachment=True)
 
+    @app.get("/status/<run_id>")
+    def status(run_id: str):
+        run_state = RUN_STORAGE.get(run_id)
+        if not run_state:
+            abort(404)
+        run_dir = Path(run_state["run_dir"])
+        result_file = run_dir / "result.json"
+        if result_file.exists():
+            import json
+
+            summary = json.loads(result_file.read_text(encoding="utf-8"))
+            RUN_STORAGE[run_id]["result"] = summary
+            RUN_STORAGE[run_id]["status"] = "completed"
+            return render_template_string(INDEX_TEMPLATE, last_result=summary, error=None)
+        # still queued
+        summary = {"run_id": run_id, "project_name": "queued", "cabinet_count": 0, "bom_line_count": 0, "summary_count": 0, "issue_count": 0, "outputs": {}}
+        return render_template_string(INDEX_TEMPLATE, last_result=summary, error=None)
+
     return app
 
 
 def main() -> int:
     app = create_app()
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    host = os.environ.get("HUIGONGYUN_HOST", "127.0.0.1")
+    port = int(os.environ.get("HUIGONGYUN_PORT", "5000"))
+    app.run(host=host, port=port, debug=False)
     return 0
 
 
 def _build_summary(run_id: str, result) -> dict[str, object]:
+  # support both dataclass ProjectResult and serialized dict written by worker
+  if isinstance(result, dict):
+    outputs = result.get("outputs", {}) or {}
+    download_links = {}
+    for key, path in outputs.items():
+      if isinstance(path, str) and (path.startswith("http://") or path.startswith("https://")):
+        download_links[key] = path
+      else:
+        download_links[key] = url_for("download_artifact", run_id=run_id, filename=Path(path).name)
     return {
-        "run_id": run_id,
-        "project_name": result.project.project_name,
-        "cabinet_count": len(result.cabinets),
-        "bom_line_count": len(result.bom_lines),
-        "summary_count": len(result.summary),
-        "issue_count": len(result.issues),
-        "outputs": result.outputs,
-        "download_links": {
-            key: url_for("download_artifact", run_id=run_id, filename=Path(path).name)
-            for key, path in result.outputs.items()
-        },
-        "issues": [asdict(issue) for issue in result.issues],
-        "cabinets": [asdict(cabinet) for cabinet in result.cabinets],
-        "bom_lines": [asdict(bom_line) for bom_line in result.bom_lines],
-        "user_edits": [asdict(edit) for edit in result.user_edits],
+      "run_id": run_id,
+      "project_name": result.get("project_name"),
+      "cabinet_count": result.get("cabinet_count", 0),
+      "bom_line_count": result.get("bom_line_count", 0),
+      "summary_count": result.get("summary_count", 0),
+      "issue_count": result.get("issue_count", 0),
+      "outputs": outputs,
+      "download_links": download_links,
+      "issues": result.get("issues", []),
+      "cabinets": [],
+      "bom_lines": [],
+      "user_edits": result.get("user_edits", []),
     }
+
+  return {
+    "run_id": run_id,
+    "project_name": result.project.project_name,
+    "cabinet_count": len(result.cabinets),
+    "bom_line_count": len(result.bom_lines),
+    "summary_count": len(result.summary),
+    "issue_count": len(result.issues),
+    "outputs": result.outputs,
+    "download_links": {
+      (key if (isinstance(path, str) and (path.startswith("http://") or path.startswith("https://"))) else key): (
+        (path if (isinstance(path, str) and (path.startswith("http://") or path.startswith("https://"))) else url_for("download_artifact", run_id=run_id, filename=Path(path).name))
+      )
+      for key, path in result.outputs.items()
+    },
+    "issues": [asdict(issue) for issue in result.issues],
+    "cabinets": [asdict(cabinet) for cabinet in result.cabinets],
+    "bom_lines": [asdict(bom_line) for bom_line in result.bom_lines],
+    "user_edits": [asdict(edit) for edit in result.user_edits],
+  }
 
 
 def _coerce_value(field_name: str, value: str, old_value):

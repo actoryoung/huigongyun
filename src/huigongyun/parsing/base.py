@@ -1,3 +1,9 @@
+"""解析器基础与占位实现。
+
+包含用于尚未实现格式的占位解析器，返回最小化的 `ProjectDocument`，
+以便后续流水线阶段继续处理或提示未实现功能。
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,19 +12,24 @@ from ..models import ProjectDocument
 
 
 class ScaffoldFormatParser:
-    """Shared fallback behavior for not-yet-implemented source formats."""
+    """尚未实现格式的共享占位解析行为。
+
+    属性：
+      - `input_kind`/`parse_status`/`source_format`/`message` 用以在返回的
+        `ProjectDocument.metadata` 中标注占位信息。
+    """
 
     input_kind = "unimplemented"
     parse_status = "scaffold"
     source_format = "unknown"
-    message = "This source type is reserved for later OCR/PDF/Word/DWG implementation."
+    message = "此源类型保留用于后续的 OCR/PDF/Word/DWG 实现。"
 
     def supports(self, input_path: str) -> bool:
-        """Match by extension so the registry can route inputs deterministically."""
+        """按扩展名匹配，便于注册表将输入路由到对应解析器。"""
         return Path(input_path).suffix.lower() in self.supported_suffixes()
 
     def parse(self, input_path: str) -> ProjectDocument:
-        """Return a scaffold document that preserves the future implementation hook."""
+        """返回包含占位标记的最小 `ProjectDocument`。"""
         path = Path(input_path)
         return ProjectDocument(
             project_name=path.stem or "project",
@@ -32,5 +43,5 @@ class ScaffoldFormatParser:
         )
 
     def supported_suffixes(self) -> set[str]:
-        """Declare which file suffixes this parser owns."""
+        """声明此解析器负责的文件后缀集合。"""
         return set()

@@ -1,4 +1,8 @@
-"""Default adapter implementations for the MVP scaffold."""
+"""MVP 骨架的默认适配器实现导出。
+
+该模块重新导出一组默认的解析、提取、归一、生成与导出器实现，便于
+在开发与测试中直接组装流水线。
+"""
 
 from .default import (
     DefaultBomGenerator,

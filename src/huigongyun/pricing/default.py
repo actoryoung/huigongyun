@@ -1,3 +1,10 @@
+"""定价与报价生成：从 BOM 行和可选价格表生成报价行与聚合总计。
+
+本模块提供 MVP 级别的定价生成器 `DefaultQuoteGenerator`，用于从 BOM
+与工作簿中的价格表或构造的元数据中构建价格查找表，并生成供导出
+与审计使用的 `quote_lines` 与 `quote_totals`。
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -15,7 +22,14 @@ class PriceEntry:
 
 
 class DefaultQuoteGenerator:
-    """Generate a minimal quote layer from BOM lines and optional price tables."""
+    """从 BOM 行与可选价格表生成最简报价层。
+
+    关键步骤：
+      1. 构建价格查找表（优先来自工作簿中的价格表，其次是 `project.metadata.price_table`）；
+      2. 对每个 BOM 行尝试解析单价并计算小计；
+      3. 填充 `result.quote_lines` 与 `result.quote_totals`，并在 `MaterialRecord` 上
+         写入价格相关的字段（`unit_price`/`price_source`/`price_confidence`/`subtotal`）。
+    """
 
     PRICE_SHEET_NAMES = {"价格表", "报价表", "单价表", "价格清单"}
     PRICE_NAME_KEYS = ("物料名称", "名称", "品名", "material_name")
@@ -24,6 +38,11 @@ class DefaultQuoteGenerator:
     PRICE_VALUE_KEYS = ("单价", "价格", "含税单价", "unit_price")
 
     def generate(self, result: ProjectResult) -> ProjectResult:
+        """基于 `result` 中的价格表与 BOM 行生成 `quote_lines` 与 `quote_totals`。
+
+        返回修改后的 `ProjectResult`。
+        """
+
         price_table = self._build_price_table(result)
         quote_lines: list[QuoteLine] = []
         cabinet_totals: dict[str, float] = defaultdict(float)
@@ -77,6 +96,12 @@ class DefaultQuoteGenerator:
         return result
 
     def _build_price_table(self, result: ProjectResult) -> dict[tuple[str, str, str], PriceEntry]:
+        """从 `result.project.metadata['sheets']`（价格表页）与 `metadata.price_table`
+        构建一个基于 `(name, spec, brand)` 的价格查找表。
+
+        返回一个字典，键为元组 `(name, spec, brand)`，值为 `PriceEntry`。
+        """
+
         table: dict[tuple[str, str, str], PriceEntry] = {}
         sheets = result.project.metadata.get("sheets", []) if isinstance(result.project.metadata, dict) else []
 
@@ -132,6 +157,12 @@ class DefaultQuoteGenerator:
         brand: str | None,
         price_table: dict[tuple[str, str, str], PriceEntry],
     ) -> PriceEntry | None:
+        """按优先级尝试在 `price_table` 中解析最匹配的价格条目。
+
+        优先级：完全匹配 `(name,spec,brand)` -> `(name,spec,None)` -> `(name,None,None)`。
+        返回 `PriceEntry` 或 None。
+        """
+
         candidates = [
             self._price_key(name, spec, brand),
             self._price_key(name, spec, None),

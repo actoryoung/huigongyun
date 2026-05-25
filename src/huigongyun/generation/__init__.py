@@ -1,1 +1,5 @@
-"""BOM generation layer scaffolding."""
+"""BOM 生成层脚手架。
+
+该包暴露用于生成机柜级与项目级 BOM 的聚合器与辅助工具，供流水线
+中的 BOM 生成阶段使用。
+"""

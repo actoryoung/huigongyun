@@ -1,3 +1,9 @@
+"""Excel 解析模块：将工作簿转换为规范化的中间表示。
+
+本模块负责发现工作簿并抽取表格级结构，生成供后续 BOM/机柜提取使用的
+`sheets` 中间表示。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,10 +27,10 @@ class SheetSnapshot:
 
 
 class ExcelProjectParser:
-    """Parse Excel-based project input into a normalized document model.
+    """将基于 Excel 的项目输入解析为规范化的文档模型。
 
-    The MVP version focuses on workbook discovery and sheet-level structure.
-    Later stages can promote rows into cabinets, BOM lines, and validation rules.
+    MVP 版本侧重于工作簿发现与表结构抽取，后续阶段可将行提升为机柜、
+    BOM 行与校验规则。
     """
 
     def parse(self, input_path: str) -> ProjectDocument:

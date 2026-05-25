@@ -1,0 +1,100 @@
+version: '3.8'
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+
+  # Postgres service for durable task/result persistence.
+  # Notes:
+  # - Change POSTGRES_PASSWORD before using in production; do NOT commit secrets to VCS.
+  # - Data is stored in the named volume `postgres_data` which maps to /var/lib/postgresql/data.
+  # - Backup (logical) example using pg_dump from host:
+  #     docker compose exec -T postgres pg_dump -U huigongyun huigongyun > backup.sql
+  #   Restore example:
+  #     docker compose exec -T postgres psql -U huigongyun -d huigongyun < backup.sql
+  # - Volume-level backup example (archive raw files):
+  #     docker run --rm -v huigongyun_postgres_data:/data -v $(pwd):/backup alpine \
+  #       sh -c "cd /data && tar czf /backup/postgres_data.tgz ."
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=huigongyun
+      - POSTGRES_USER=huigongyun
+      - POSTGRES_PASSWORD=secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  api:
+    build: .
+    volumes:
+      - ./:/app:cached
+    environment:
+      - FLASK_ENV=development
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - HUIGONGYUN_HOST=0.0.0.0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=huigongyun
+      - MINIO_SECURE=0
+      - MINIO_PUBLIC_URL=http://localhost:9000
+      # Postgres connection (injected into api/worker). In production prefer Docker secrets or an external secrets manager.
+      # PG_PASSWORD should be set to a strong value and not checked into source control.
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=huigongyun
+      - PG_USER=huigongyun
+      - PG_PASSWORD=secret
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+      - minio
+      - postgres
+
+  worker:
+    build: .
+    command: ["/bin/sh", "-c", "celery -A huigongyun.tasks.celery worker --loglevel=info"]
+    volumes:
+      - ./:/app:cached
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=huigongyun
+      - MINIO_SECURE=0
+      - MINIO_PUBLIC_URL=http://localhost:9000
+      # Same Postgres env for worker. Use secrets in production and restrict network access.
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=huigongyun
+      - PG_USER=huigongyun
+      - PG_PASSWORD=secret
+    depends_on:
+      - redis
+      - minio
+      - postgres
+
+volumes:
+  minio_data:
+  postgres_data:

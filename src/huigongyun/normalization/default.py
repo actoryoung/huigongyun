@@ -1,15 +1,29 @@
+"""默认的物料归一化实现。
+
+提供轻量、可解释的字符串清洗与别名映射。优先使用确定性映射，并在
+可用时退回到 RapidFuzz 的模糊匹配以提升召回。
+"""
+
 from __future__ import annotations
 
 import re
 
 from ..models import BomLine, MaterialRecord, ProjectResult
 
+try:
+    from rapidfuzz import process, fuzz  # type: ignore
+    _HAS_RAPIDFUZZ = True
+except Exception:
+    _HAS_RAPIDFUZZ = False
+
 
 class DefaultMaterialNormalizer:
-    """Normalize material names, specs, brands, and units using a lightweight dictionary.
+    """对物料名称、规格、品牌和单位进行轻量归一化。
 
-    The MVP keeps this layer deterministic and explainable. It intentionally leaves
-    numeric sizing, cost rules, and deeper model-based matching as future hooks.
+    实现要点：
+      - 对 `bom_lines` 与 `summary` 中的物料调用一致的清洗与别名映射；
+      - 优先使用确定性别名映射（`MATERIAL_ALIASES` / `BRAND_ALIASES`）；
+      - 在可用时使用 RapidFuzz 进行模糊匹配作为回退以提高召回。
     """
 
     MATERIAL_ALIASES = {
@@ -49,6 +63,11 @@ class DefaultMaterialNormalizer:
     }
 
     def normalize(self, result: ProjectResult) -> ProjectResult:
+        """对传入的 `ProjectResult` 就地归一化物料字段并返回相同对象。
+
+        该函数会修改 `bom_lines` 中的 `MaterialRecord` 实例以及 `summary` 列表中的
+        条目，确保后续聚合与定价阶段使用规范化后的字符串。
+        """
         for bom_line in result.bom_lines:
             self._normalize_material(bom_line.material)
 
@@ -58,6 +77,10 @@ class DefaultMaterialNormalizer:
         return result
 
     def _normalize_material(self, material: MaterialRecord) -> None:
+        """把单个 `MaterialRecord` 内的字段按规则清洗与映射。
+
+        注意：该函数会更新 `material.normalized_name` 与 `material.normalized_spec`。
+        """
         material.name = self._normalize_text(material.name)
         material.spec = self._normalize_spec(material.spec)
         material.unit = self._normalize_unit(material.unit)
@@ -75,16 +98,60 @@ class DefaultMaterialNormalizer:
         return text
 
     def _normalize_material_name(self, value: str | None) -> str | None:
+        """把物料名称规范化到可比的字符串或别名。
+
+        步骤：先做确定性的别名查找；若未命中且 RapidFuzz 可用，则做模糊匹配回退，
+        匹配分数阈值为 85（可在未来参数化）。返回归一化后的名称字符串或 None。
+        """
         if not value:
             return None
         normalized = self._normalize_text(value)
-        return self.MATERIAL_ALIASES.get(normalized, normalized)
+        # Exact alias match first
+        if normalized in self.MATERIAL_ALIASES:
+            return self.MATERIAL_ALIASES[normalized]
+
+        # Fuzzy fallback using RapidFuzz if available
+        if _HAS_RAPIDFUZZ:
+            choices = list(self.MATERIAL_ALIASES.keys())
+            match = process.extractOne(normalized, choices, scorer=fuzz.token_sort_ratio)
+            if match:
+                # match is typically (key, score, index)
+                try:
+                    key, score = match[0], match[1]
+                except Exception:
+                    key, score = match[0], 0
+                try:
+                    score = int(score)
+                except Exception:
+                    score = 0
+                if score >= 85:
+                    return self.MATERIAL_ALIASES.get(key, normalized)
+
+        return normalized
 
     def _normalize_brand(self, value: str | None) -> str | None:
         if not value:
             return None
         normalized = self._normalize_text(value)
-        return self.BRAND_ALIASES.get(normalized, normalized)
+        if normalized in self.BRAND_ALIASES:
+            return self.BRAND_ALIASES[normalized]
+
+        if _HAS_RAPIDFUZZ:
+            choices = list(self.BRAND_ALIASES.keys())
+            match = process.extractOne(normalized, choices, scorer=fuzz.token_sort_ratio)
+            if match:
+                try:
+                    key, score = match[0], match[1]
+                except Exception:
+                    key, score = match[0], 0
+                try:
+                    score = int(score)
+                except Exception:
+                    score = 0
+                if score >= 80:
+                    return self.BRAND_ALIASES.get(key, normalized)
+
+        return normalized
 
     def _normalize_unit(self, value: str | None) -> str | None:
         if not value:
