@@ -1,7 +1,7 @@
-"""Parsing layer scaffolding.
+"""解析层脚手架。
 
-This package exposes stable parser interfaces and scaffold implementations for
-Excel, PDF, Word, image, and DWG inputs.
+此包暴露稳定的解析器接口与占位实现，用于 Excel、PDF、Word、图像
+与 DWG 等输入格式的解析与适配。
 """
 
 from .base import ScaffoldFormatParser

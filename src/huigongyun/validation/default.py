@@ -1,3 +1,9 @@
+"""默认的项目级校验器。
+
+应用若干基础的 MVP 级别规则以检测机柜与 BOM 行的完整性与一致性，
+并生成可追溯的 `ValidationIssue` 列表供上层展示或人工确认。
+"""
+
 from __future__ import annotations
 
 from collections import Counter
@@ -6,7 +12,7 @@ from ..models import BomLine, ProjectResult, ValidationIssue
 
 
 class DefaultProjectValidator:
-    """Apply basic MVP validation rules for cabinets and BOM lines."""
+    """应用基础的校验规则以发现常见问题。"""
 
     def validate(self, result: ProjectResult) -> ProjectResult:
         issues: list[ValidationIssue] = []

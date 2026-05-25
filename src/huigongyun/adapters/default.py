@@ -1,3 +1,9 @@
+"""默认适配器实现：将具体阶段连接成可运行的流水线。
+
+该模块为示例流水线提供简单且有明确取舍的默认实现，用于组装端到端
+工作流。每个类体量较小，并将实际工作委托给对应子模块实现。
+"""
+
 from __future__ import annotations
 
 import json
@@ -15,6 +21,13 @@ from ..pricing.default import DefaultQuoteGenerator as _DefaultQuoteGenerator
 
 
 class DefaultProjectParser(ProjectParser):
+    """从解析器注册表选择合适的源解析器并解析输入。
+
+    I/O：
+      - 输入：文件系统路径 `input_path`（文件或目录）
+      - 输出：描述已发现文件与元数据的 `ProjectDocument`
+    """
+
     def __init__(self, registry: SourceParserRegistry | None = None) -> None:
         self.registry = registry or build_default_source_registry()
 
@@ -26,6 +39,8 @@ class DefaultProjectParser(ProjectParser):
 
 
 class DefaultCabinetExtractor(CabinetExtractor):
+    """提取机柜候选项；对于电子表格委托给 Excel 提取器。"""
+
     def extract(self, document: ProjectDocument) -> ProjectResult:
         if document.metadata.get("input_kind") == "excel":
             return ExcelCabinetAndBomExtractor().extract(document)
@@ -36,11 +51,15 @@ class DefaultCabinetExtractor(CabinetExtractor):
 
 
 class DefaultMaterialNormalizer(MaterialNormalizer):
+    """使用默认的归一化实现对物料字段进行规范化。"""
+
     def normalize(self, result: ProjectResult) -> ProjectResult:
         return _DefaultMaterialNormalizer().normalize(result)
 
 
 class DefaultBomGenerator(BomGenerator):
+    """生成 BOM 行；在无数据时提供占位项。"""
+
     def generate(self, result: ProjectResult) -> ProjectResult:
         if not result.bom_lines:
             placeholder = MaterialRecord(name="placeholder material", unit="set", quantity=1, remarks="placeholder")
@@ -56,15 +75,21 @@ class DefaultBomGenerator(BomGenerator):
 
 
 class DefaultQuoteGenerator(QuoteGenerator):
+    """将报价生成委托给定价模块。"""
+
     def generate(self, result: ProjectResult) -> ProjectResult:
         return _DefaultQuoteGenerator().generate(result)
 
 
 class DefaultValidator(Validator):
+    """执行默认的项目级验证检查。"""
+
     def validate(self, result: ProjectResult) -> ProjectResult:
         return DefaultProjectValidator().validate(result)
 
 
 class DefaultExporter(Exporter):
+    """通过电子表格导出器导出工件。"""
+
     def export(self, result: ProjectResult, output_dir: str) -> dict[str, str]:
         return ProjectExporter().export(result, output_dir)

@@ -1,3 +1,15 @@
+"""Huigongyun MVP 的数据模型定义。
+
+本模块定义流水线中使用的轻量传输和领域对象：`ProjectDocument`、
+`CabinetRecord`、`MaterialRecord`、`BomLine`、`ProjectResult` 及辅助类型。
+这些 dataclass 用于内存编排、导出为 JSON，以及持久化存储。
+
+I/O 说明：
+    - `ProjectDocument` 表示解析后的输入结构（项目名称、文件列表及元数据）。
+    - `ProjectResult` 为流水线输出，包含 cabinets、bom_lines、summary、
+        quote_lines、issues，以及将工件映射到本地路径或 presigned URL 的 `outputs` 字段。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,6 +30,12 @@ class SourceRef:
 
 @dataclass(slots=True)
 class CabinetRecord:
+    """表示从输入中提取出的单个机柜候选项。
+
+    字段说明：
+      - `cabinet_no`：机柜标识
+      - `sources`：来源引用（`SourceRef` 列表），用于可追溯性
+    """
     cabinet_no: str
     cabinet_type: str | None = None
     rated_current: str | None = None
@@ -33,6 +51,11 @@ class CabinetRecord:
 
 @dataclass(slots=True)
 class MaterialRecord:
+    """表示 BOM 行中的单个物料/元件候选。
+
+    该记录设计为冗长以同时携带原始与归一化值、定价线索与来源信息，
+    以便审计与追溯。
+    """
     name: str
     spec: str | None = None
     unit: str | None = None
@@ -106,6 +129,11 @@ class QuoteLine:
 
 @dataclass(slots=True)
 class ProjectResult:
+    """流水线输出容器。
+
+    `outputs` 将如 'json'、'excel' 等工件键映射到本地文件路径，或在
+    上传到对象存储后返回的 presigned URL。
+    """
     project: ProjectDocument
     cabinets: list[CabinetRecord] = field(default_factory=list)
     bom_lines: list[BomLine] = field(default_factory=list)
