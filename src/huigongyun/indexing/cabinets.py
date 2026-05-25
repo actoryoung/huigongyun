@@ -1,3 +1,10 @@
+"""从解析后的电子表格记录构建机柜索引的辅助工具。
+
+`CabinetIndexBuilder` 检查表格层级的记录（由 Excel 解析器产生的中间
+表示），并聚合机柜级元数据及其来源信息。返回 `CabinetIndexResult`，
+其中包含解析出的机柜、未解析的行与便于追溯的简短说明。
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -35,6 +42,13 @@ class CabinetIndexBuilder:
     QUANTITY_KEYS = ("数量", "qty", "数量(台)", "件数")
 
     def build(self, document: ProjectDocument) -> CabinetIndexResult:
+        """从 `ProjectDocument` 的 `sheets` 构建机柜索引。
+
+        行为概要：遍历每个 sheet（跳过价格表），根据行内机柜相关字段聚合
+        `CabinetRecord`，并收集无法解析的行到 `unresolved_rows` 以便后续人工
+        介入或规则改进。
+        """
+
         result = CabinetIndexResult()
         sheets = document.metadata.get("sheets", []) if isinstance(document.metadata, dict) else []
 
@@ -92,6 +106,10 @@ class CabinetIndexBuilder:
         sheet_name: str,
         row_no: int,
     ) -> None:
+        """将新的行信息合并到已存在的 `CabinetRecord`。
+
+        合并策略：仅当目标字段为空或不可信时才更新，保留来源追溯并提高置信度。
+        """
         if not cabinet.cabinet_type:
             cabinet.cabinet_type = self._first_text(record, self.CABINET_TYPE_KEYS)
         if not cabinet.rated_current:
