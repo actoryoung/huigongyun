@@ -34,7 +34,7 @@ except Exception:
 
 
 try:
-    from .storage.postgres_store import save_run_summary_if_configured
+    from .storage.postgres_store import save_run_summary_if_configured, save_run_summary_with_retry
     _HAS_PG_STORE = True
 except Exception:
     _HAS_PG_STORE = False
@@ -98,7 +98,7 @@ if _HAS_CELERY:
         try:
             rid = run_id or _extract_run_id_from_dir(str(run_dir_path))
             if _HAS_PG_STORE and rid:
-                save_run_summary_if_configured(rid, str(run_dir_path), summary)
+                save_run_summary_with_retry(rid, str(run_dir_path), summary)
         except Exception:
             pass
 
@@ -138,7 +138,7 @@ else:
         try:
             rid = run_id or _extract_run_id_from_dir(str(run_dir_path))
             if _HAS_PG_STORE and rid:
-                save_run_summary_if_configured(rid, str(run_dir_path), summary)
+                save_run_summary_with_retry(rid, str(run_dir_path), summary)
         except Exception:
             pass
 
