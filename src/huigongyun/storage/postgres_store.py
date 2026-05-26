@@ -11,7 +11,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     import psycopg2  # type: ignore
@@ -75,6 +78,11 @@ def _extract_run_id(run_dir: str) -> str | None:
     return None
 
 
+def _get_conn(dsn: str):
+    """返回 psycopg2 连接（包装点，便于测试替换）。"""
+    return psycopg2.connect(dsn, connect_timeout=5)
+
+
 def _ensure_table(conn) -> None:
         """确保数据库中存在 `runs` 表（幂等创建）。
 
@@ -105,73 +113,71 @@ def _ensure_table(conn) -> None:
                 conn.commit()
 
 
-def save_run_summary(run_id: str | None, run_dir: str, summary: dict[str, Any], status: str = "completed") -> bool:
-    """将运行摘要写入 `runs` 表，支持 INSERT 或 ON CONFLICT 的 UPSERT。
+def _save_run_summary(run_id: str | None, run_dir: str, summary: dict[str, Any], status: str = "completed") -> None:
+    """核心写入函数；在底层异常时抛出以便上层 retry wrapper 处理。
 
-    参数：
-      - `run_id`：外部运行 ID，可为空；为空时尝试从 `run_dir` 提取；
-      - `run_dir`：运行目录路径（记录入库以便追溯）；
-      - `summary`：包含 `project_name`、`cabinet_count`、`bom_line_count` 等键的字典；
-      - `status`：运行状态字符串，默认 `completed`。
-
-    行为：
-      - 若未安装 psycopg2 或未配置 DSN，返回 False；
-      - 在首次写入前会调用 `_ensure_table` 创建表（幂等）；
-      - 将 `outputs`/`issues`/`user_edits` 以及完整 `summary` 以 JSONB 存储；
-      - 返回 True 表示成功，任何异常均会导致返回 False（调用方可选择忽略）。
+    该函数与原 `save_run_summary` 的数据库交互保持一致，但不会吞掉异常。
     """
     if not _HAS_PG:
-        return False
+        raise RuntimeError("psycopg2 not available")
     dsn = _get_dsn()
     if not dsn:
-        return False
+        raise RuntimeError("dsn not configured")
 
     if run_id is None:
         run_id = _extract_run_id(run_dir)
         if run_id is None:
-            return False
+            raise ValueError("run_id not found and cannot be extracted")
 
+    conn = _get_conn(dsn)
     try:
-        conn = psycopg2.connect(dsn, connect_timeout=5)
-        try:
-            _ensure_table(conn)
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO runs (run_id, project_name, run_dir, status, completed_at, cabinet_count, bom_line_count, summary_count, issue_count, outputs, issues, user_edits, raw_result)
-                    VALUES (%s,%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s)
-                    ON CONFLICT (run_id) DO UPDATE SET
-                      project_name = EXCLUDED.project_name,
-                      run_dir = EXCLUDED.run_dir,
-                      status = EXCLUDED.status,
-                      completed_at = EXCLUDED.completed_at,
-                      cabinet_count = EXCLUDED.cabinet_count,
-                      bom_line_count = EXCLUDED.bom_line_count,
-                      summary_count = EXCLUDED.summary_count,
-                      issue_count = EXCLUDED.issue_count,
-                      outputs = EXCLUDED.outputs,
-                      issues = EXCLUDED.issues,
-                      user_edits = EXCLUDED.user_edits,
-                      raw_result = EXCLUDED.raw_result;
-                    """,
-                    (
-                        run_id,
-                        summary.get("project_name"),
-                        run_dir,
-                        status,
-                        summary.get("cabinet_count"),
-                        summary.get("bom_line_count"),
-                        summary.get("summary_count"),
-                        summary.get("issue_count"),
-                        psycopg2.extras.Json(summary.get("outputs", {})),
-                        psycopg2.extras.Json(summary.get("issues", [])),
-                        psycopg2.extras.Json(summary.get("user_edits", [])),
-                        psycopg2.extras.Json(summary),
-                    ),
-                )
-            conn.commit()
-        finally:
-            conn.close()
+        _ensure_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO runs (run_id, project_name, run_dir, status, completed_at, cabinet_count, bom_line_count, summary_count, issue_count, outputs, issues, user_edits, raw_result)
+                VALUES (%s,%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (run_id) DO UPDATE SET
+                  project_name = EXCLUDED.project_name,
+                  run_dir = EXCLUDED.run_dir,
+                  status = EXCLUDED.status,
+                  completed_at = EXCLUDED.completed_at,
+                  cabinet_count = EXCLUDED.cabinet_count,
+                  bom_line_count = EXCLUDED.bom_line_count,
+                  summary_count = EXCLUDED.summary_count,
+                  issue_count = EXCLUDED.issue_count,
+                  outputs = EXCLUDED.outputs,
+                  issues = EXCLUDED.issues,
+                  user_edits = EXCLUDED.user_edits,
+                  raw_result = EXCLUDED.raw_result;
+                """,
+                (
+                    run_id,
+                    summary.get("project_name"),
+                    run_dir,
+                    status,
+                    summary.get("cabinet_count"),
+                    summary.get("bom_line_count"),
+                    summary.get("summary_count"),
+                    summary.get("issue_count"),
+                    psycopg2.extras.Json(summary.get("outputs", {})),
+                    psycopg2.extras.Json(summary.get("issues", [])),
+                    psycopg2.extras.Json(summary.get("user_edits", [])),
+                    psycopg2.extras.Json(summary),
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def save_run_summary(run_id: str | None, run_dir: str, summary: dict[str, Any], status: str = "completed") -> bool:
+    """将运行摘要写入 `runs` 表，支持 INSERT 或 ON CONFLICT 的 UPSERT。
+
+    保持原有兼容性：任何异常会导致返回 False，不会抛出。
+    """
+    try:
+        _save_run_summary(run_id, run_dir, summary, status)
         return True
     except Exception:
         return False
@@ -187,3 +193,60 @@ def save_run_summary_if_configured(run_id: str | None, run_dir: str, summary: di
         return save_run_summary(run_id, run_dir, summary)
     except Exception:
         return False
+
+
+# retry wrapper: prefer tenacity if available, otherwise fall back to a simple loop
+try:
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+        before_sleep_log,
+    )
+    _HAS_TENACITY = True
+except Exception:
+    _HAS_TENACITY = False
+
+
+def save_run_summary_with_retry(run_id: str | None, run_dir: str, summary: dict[str, Any], status: str = "completed") -> bool:
+    """Retrying wrapper around the core `_save_run_summary`.
+
+    优先使用 tenacity（若可用）；若 tenacity 缺失则使用简单的重试循环。
+    返回 True 表示最终写入成功；否则返回 False。
+    """
+    if not _HAS_PG:
+        return False
+    dsn = _get_dsn()
+    if not dsn:
+        return False
+    if run_id is None:
+        run_id = _extract_run_id(run_dir)
+        if run_id is None:
+            return False
+
+    max_attempts = 5
+
+    if _HAS_TENACITY:
+        # build a small wrapper using tenacity to retry on exceptions
+        @retry(reraise=True, stop=stop_after_attempt(max_attempts), wait=wait_exponential(multiplier=1, min=1, max=30), retry=retry_if_exception_type(Exception), before_sleep=before_sleep_log(logger, logging.WARNING))
+        def _call():
+            _save_run_summary(run_id, run_dir, summary, status)
+
+        try:
+            _call()
+            return True
+        except Exception:
+            return False
+    else:
+        # simple fallback retry loop (no sleeping to keep tests fast)
+        attempts = 0
+        while attempts < max_attempts:
+            attempts += 1
+            try:
+                _save_run_summary(run_id, run_dir, summary, status)
+                return True
+            except Exception:
+                if attempts >= max_attempts:
+                    return False
+                continue

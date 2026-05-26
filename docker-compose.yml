@@ -72,10 +72,13 @@ services:
 
   worker:
     build: .
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     command: ["/bin/sh", "-c", "celery -A huigongyun.tasks.celery worker --loglevel=info"]
     volumes:
       - ./:/app:cached
     environment:
+      - APP_UID=${APP_UID:-1000}
+      - APP_GID=${APP_GID:-1000}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
