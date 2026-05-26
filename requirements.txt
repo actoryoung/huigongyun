@@ -18,3 +18,7 @@ redis>=4.5.0
 minio>=7.1.1
 psycopg2-binary>=2.9.7
 tenacity>=8.2.2
+# OCR PoC runtime (optional for unit tests which are monkeypatched)
+pytesseract
+pdf2image
+Pillow
