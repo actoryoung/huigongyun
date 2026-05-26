@@ -37,8 +37,8 @@ def test_tasks_use_retry_wrapper(monkeypatch, tmp_path, sample_run_summary):
             raise Exception("transient")
         return True
 
-    # place fake at the task call-site (tasks currently uses save_run_summary_if_configured)
-    monkeypatch.setattr(tasks, "save_run_summary_if_configured", fake_save_with_retry, raising=False)
+    # place fake at the task call-site (tasks currently uses save_run_summary_with_retry)
+    monkeypatch.setattr(tasks, "save_run_summary_with_retry", fake_save_with_retry, raising=False)
     monkeypatch.setattr(tasks, "_HAS_PG_STORE", True)
 
     # call process_project synchronously; should return summary even if persistence transiently fails
