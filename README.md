@@ -139,3 +139,42 @@ docker run --rm -v restore_tmp:/data -v $(pwd):/backup alpine \
 注意：卷级别备份直接操作底层数据文件，可能在 Postgres 活动期间出现一致性问题；对于生产环境，请优先使用 `pg_dump` 或 PostgreSQL 提供的物理备份工具（如 `pg_basebackup`）并在维护窗口内进行。
 
 更多：`docker-compose.yml` 中包含了注释说明，指出了密码更改、数据卷和备份示例的用法。
+## MinIO 与导出（Presigned URL）
+
+导出器会将 JSON/Excel 工件上传至 MinIO 并生成 presigned URL。若你需要在宿主机/浏览器中通过不同的 host/scheme 访问这些链接，请设置环境变量 `MINIO_PUBLIC_URL`（例如 `http://localhost:9000`）。当设置该变量时，导出器会用 `MINIO_PUBLIC_URL` 的 scheme 和 host 替换 presigned URL 的 scheme/host，从而使链接在宿主环境中可访问。
+
+关键环境变量：
+- `MINIO_ENDPOINT`
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `MINIO_BUCKET`
+- `MINIO_PUBLIC_URL`（可选 — 用于替换 presigned URL 的 host/scheme）
+
+示例使用（本地运行）：
+```bash
+export MINIO_ENDPOINT=minio:9000
+export MINIO_ACCESS_KEY=minioadmin
+export MINIO_SECRET_KEY=minioadmin
+export MINIO_BUCKET=exports
+export MINIO_PUBLIC_URL=http://localhost:9000
+# 运行导出流程（示例）
+python -m huigongyun --export --output-bucket $MINIO_BUCKET
+```
+
+## OCR PoC（Tesseract）
+
+仓库包含 OCR PoC，使用 Tesseract + `pdf2image`，adapter 位于 `src/huigongyun/parsing/ocr_adapter.py`，演示脚本为 `scripts/ocr_poc.py`。运行前需在系统级安装 `tesseract` 和 `poppler`（例如 `pdftoppm` 可用）。示例：
+```bash
+python scripts/ocr_poc.py tests/fixtures/ocr_sample.png
+```
+
+## 依赖说明
+
+- `requirements.txt`/`requirements-dev.txt`：列出用于本地开发与 CI 的常用依赖。建议用于快速安装与本地运行。
+- `pyproject.toml`：包含打包/发布元数据；当前可能未列出全部 runtime extras。建议在发布前将 runtime 依赖同步到 `pyproject.toml` 的 `project.dependencies`，或在 README 中明确说明两者的用途。
+
+本地快速安装示例：
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pip install -e .
+```
