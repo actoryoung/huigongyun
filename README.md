@@ -76,6 +76,16 @@ huigongyun --help
 - 未完成：真实多格式解析、复杂商务报价、高级校验、变更分析、演示脚本与完整评估报告。
 - 暂缓：复杂支持和高级校验先不做，保留接口与 `pending_*` 记号，等待后续数据格式正式下发。
 
+### 近期进展（2026-05-26）
+
+- 已实现：Postgres 写入与 upsert（参见 src/huigongyun/storage/postgres_store.py），用于持久化运行/审计记录。
+- 已实现：任务层支持 Celery 异步任务并内建同步回退与重试策略（参见 src/huigongyun/tasks.py）。
+- 已实现：OCR PoC（TesseractAdapter）与演示脚本（src/huigongyun/parsing/ocr_adapter.py、scripts/ocr_poc.py）。
+- 已实现：导出器对 MinIO presigned URL 的 host/scheme 重写（参见 src/huigongyun/export/spreadsheet.py），支持 MINIO_PUBLIC_URL 环境变量。
+- 已实现：基本 CI 工作流已添加（.github/workflows/ci.yml）并推送到远端。
+- 本地测试：近期本地单元测试显示通过（历史记录：17 → 15 tests），但在自动化 runner 中多次遇到 pytest 或系统依赖不可用的情况（建议在 CI 中安装 tesseract、poppler-utils 以支持 OCR/integration tests）。
+- 待办：确认并移除/归档仓库中的大文件（例如 get-pip.py、huigongyun.egg-info、output/），并把 runtime 依赖同步到 pyproject.toml；在 CI 中增加系统包安装步骤以保证集成测试可运行。
+
 ## 给 qi 的简要总结
 
 - 项目已经跑通 Excel 主闭环，能够生成柜体、逐柜 BOM、项目汇总、报价和导出文件。
