@@ -74,3 +74,19 @@ def sample_run_summary():
     }
 
 # TODO: Replace placeholder fixtures with real sample files under tests/fixtures/
+
+@pytest.fixture
+def ocr_sample_path():
+    """Path to an OCR sample image under tests/fixtures.
+
+    If a binary PNG is not present, a placeholder file is created so tests referencing this path do not fail.
+    Integration tests that require real OCR data should replace the placeholder with a real image.
+    """
+    from pathlib import Path
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    fixtures_dir.mkdir(exist_ok=True)
+    p = fixtures_dir / "ocr_sample.png"
+    if not p.exists():
+        (fixtures_dir / "OCR_SAMPLE_README.md").write_text("Add a real ocr_sample.png here to run OCR integration tests.\n")
+        p.write_bytes(b"")
+    return p
