@@ -12,7 +12,7 @@ from typing import Protocol, runtime_checkable
 
 from ..models import ProjectDocument
 from .excel import ExcelProjectParser
-from .pdf import PdfSourceParser
+from .pdf import PdfSourceParser, PdfOcrParser
 from .word import WordSourceParser
 from .image import ImageSourceParser
 from .dwg import DwgSourceParser
@@ -107,7 +107,8 @@ def build_default_source_registry() -> SourceParserRegistry:
     """
     registry = SourceParserRegistry()
     registry.register(ExcelSourceParser())
-    registry.register(PdfSourceParser())
+    # Use OCR-capable PDF parser so registry can fallback to OCR when needed
+    registry.register(PdfOcrParser())
     registry.register(WordSourceParser())
     registry.register(ImageSourceParser())
     registry.register(DwgSourceParser())
