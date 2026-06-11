@@ -32,11 +32,15 @@ def test_dwg_conversion_and_dxf_parsing(monkeypatch, tmp_path):
     monkeypatch.setattr(dwg_mod.DwgConverter, 'convert_dwg_to_dxf', lambda self, path, out_dir=None: str(converted))
 
     # create fake ezdxf module with readfile
+    # Need dxf attribute to match our text extraction helper
+    class FakeEntity:
+        def __init__(self, text_val):
+            self.dxf = types.SimpleNamespace(text=text_val, layer='0')
     class FakeDoc:
         def modelspace(self):
             class Msp:
                 def query(self, q):
-                    return [types.SimpleNamespace(text='T1'), types.SimpleNamespace(text='T2')]
+                    return [FakeEntity('T1'), FakeEntity('T2')]
             return Msp()
 
     fake_ezdxf = types.ModuleType('ezdxf')
@@ -46,5 +50,6 @@ def test_dwg_conversion_and_dxf_parsing(monkeypatch, tmp_path):
     doc = build_default_source_registry().parse(str(dwg))
 
     assert doc.metadata.get('parse_status') == 'ok'
-    assert doc.metadata.get('source_format') == 'dxf'
+    assert doc.metadata.get('source_format') == 'dwg'
+    assert doc.metadata.get('conversion_used') is True
     assert doc.metadata.get('text_count', 0) >= 2

@@ -6,3 +6,5 @@ dist/
 build/
 output/
 *.egg-info/
+*.dxf
+demo_output/

@@ -60,6 +60,39 @@ class WordSourceParser(ScaffoldFormatParser):
                 rows.append(cells)
             tables.append({"row_count": len(rows), "rows": rows})
 
+        # Extract technical constraints from paragraphs
+        constraints = None
+        try:
+            from .constraint_extractor import TechnicalConstraintExtractor
+            extractor = TechnicalConstraintExtractor()
+            constraint_result = extractor.extract(paragraphs)
+            constraints = {
+                "constraint_count": len(constraint_result.constraints),
+                "all_constraints": [
+                    {"type": c.constraint_type, "value": c.value, "source": c.source_text[:80]}
+                    for c in constraint_result.constraints
+                ],
+                "cabinet_type": constraint_result.cabinet_type,
+                "ip_rating": constraint_result.ip_rating,
+                "dimensions": constraint_result.dimensions,
+                "grounding_mode": constraint_result.grounding_mode,
+                "inbound_outbound": constraint_result.inbound_outbound,
+                "busbar_spec": constraint_result.busbar_spec,
+                "frame_breaker": constraint_result.frame_breaker,
+                "mccb": constraint_result.mccb,
+                "meter_incomer": constraint_result.meter_incomer,
+                "meter_feeder": constraint_result.meter_feeder,
+                "reactive_comp": constraint_result.reactive_comp,
+                "surge_protection": constraint_result.surge_protection,
+                "ats_config": constraint_result.ats_config,
+                "generator_switch": constraint_result.generator_switch,
+                "specified_brands": constraint_result.specified_brands,
+            }
+            # Generate validation rules from constraints
+            constraints["validation_rules"] = extractor.to_validation_rules(constraint_result)
+        except Exception:
+            pass
+
         return ProjectDocument(
             project_name=path.stem or "project",
             files=[str(path)],
@@ -71,5 +104,6 @@ class WordSourceParser(ScaffoldFormatParser):
                 "paragraphs": paragraphs,
                 "table_count": len(tables),
                 "tables": tables,
+                "constraints": constraints,
             },
         )

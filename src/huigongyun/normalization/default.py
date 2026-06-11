@@ -1,14 +1,16 @@
 """默认的物料归一化实现。
 
-提供轻量、可解释的字符串清洗与别名映射。优先使用确定性映射，并在
-可用时退回到 RapidFuzz 的模糊匹配以提升召回。
+提供轻量、可解释的字符串清洗与别名映射。优先使用确定性映射（从外部
+JSON 词典加载），并在可用时退回到 RapidFuzz 的模糊匹配以提升召回。
 """
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
-from ..models import BomLine, MaterialRecord, ProjectResult
+from ..models import MaterialRecord, ProjectResult
 
 try:
     from rapidfuzz import process, fuzz  # type: ignore
@@ -17,50 +19,132 @@ except Exception:
     _HAS_RAPIDFUZZ = False
 
 
+def _load_dictionaries() -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """从 JSON 词典文件加载物料、品牌、单位别名映射。
+
+    返回三个别名映射字典：(material_map, brand_map, unit_map)。
+    每个字典将变体名称映射到规范名称：{variant: canonical}。
+    """
+    dict_path = Path(__file__).parent / "dictionaries" / "materials.json"
+
+    # 内置回退词典（当 JSON 文件不可用时使用）
+    fallback_materials = {
+        "断路器": "断路器", "空气开关": "断路器", "空开": "断路器",
+        "塑壳断路器": "断路器", "框架断路器本体": "框架断路器",
+        "接触器": "接触器", "交流接触器": "接触器",
+        "热继电器": "热继电器", "热过载继电器": "热继电器", "热继": "热继电器",
+        "浪涌保护器": "浪涌保护器", "SPD": "浪涌保护器",
+        "双电源开关ATMT": "双电源开关", "双电源开关WTS": "双电源开关",
+        "SPD断路器": "SPD断路器", "浪涌后备保护断路器": "SPD断路器",
+        "断路器脱扣单元": "断路器脱扣单元", "脱扣单元": "断路器脱扣单元",
+        "测量电流互感器": "测量电流互感器", "CT": "测量电流互感器",
+        "多功能表": "多功能表", "电力仪表": "多功能表",
+        "熔断器隔离开关": "熔断器隔离开关", "刀熔开关": "熔断器隔离开关",
+        "晶闸管投切开关": "晶闸管投切开关", "投切开关": "晶闸管投切开关",
+        "温湿度控制器": "温湿度控制器", "温控器": "温湿度控制器",
+        "SVG": "SVG", "静止无功发生器": "SVG",
+        "主母线": "主母线", "母线": "主母线", "铜排": "主母线",
+        "柜体": "柜体", "机柜": "柜体",
+        "SP元件": "SP元件", "智能网关": "SP元件",
+        "电抗器": "电抗器", "滤波电抗器": "电抗器",
+        "电容器": "电容器", "电力电容": "电容器",
+        "通讯模块": "通讯模块", "通信模块": "通讯模块",
+        "熔断器": "熔断器", "FUSE": "熔断器",
+        "隔离开关": "隔离开关",
+        "接触器": "接触器",
+        "微型断路器": "微型断路器", "MCB": "微型断路器",
+    }
+    fallback_brands = {
+        "施耐德": "施耐德", "Schneider": "施耐德", "SCHNEIDER": "施耐德",
+        "施耐德电气": "施耐德", "施耐德成套": "施耐德",
+        "西门子": "西门子", "Siemens": "西门子", "SIEMENS": "西门子",
+        "ABB": "ABB", "abb": "ABB",
+        "正泰": "正泰", "CHINT": "正泰",
+        "德力西": "德力西", "Delixi": "德力西",
+        "良信": "良信", "Nader": "良信",
+        "国产": "国产", "国产优质": "国产", "国优产品": "国产",
+        "茗熔": "茗熔", "茗熔电器": "茗熔",
+        "甲供": "甲供", "甲方供货": "甲供", "业主供货": "甲供",
+        "施耐德万高": "施耐德万高",
+    }
+    fallback_units = {
+        "台": "台", "set": "台", "面": "台",
+        "只": "只", "个": "只", "piece": "只",
+        "套": "套", "组": "套",
+        "米": "米", "m": "米", "M": "米",
+        "件": "件", "条": "件", "根": "件",
+    }
+
+    try:
+        if not dict_path.exists():
+            return fallback_materials, fallback_brands, fallback_units
+
+        with open(dict_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return fallback_materials, fallback_brands, fallback_units
+
+    # Build material alias map from JSON
+    mat_map: dict[str, str] = {}
+    for canonical, aliases in data.get("material_aliases", {}).items():
+        for alias in aliases:
+            mat_map[alias] = canonical
+        if canonical not in mat_map:
+            mat_map[canonical] = canonical
+
+    # Build brand alias map
+    brand_map: dict[str, str] = {}
+    for canonical, aliases in data.get("brand_aliases", {}).items():
+        for alias in aliases:
+            brand_map[alias] = canonical
+        if canonical not in brand_map:
+            brand_map[canonical] = canonical
+
+    # Build unit alias map
+    unit_map: dict[str, str] = {}
+    for canonical, aliases in data.get("unit_aliases", {}).items():
+        for alias in aliases:
+            unit_map[alias] = canonical
+        if canonical not in unit_map:
+            unit_map[canonical] = canonical
+
+    # Merge fallback entries (only where not already defined in JSON)
+    for k, v in fallback_materials.items():
+        if k not in mat_map:
+            mat_map[k] = v
+    for k, v in fallback_brands.items():
+        if k not in brand_map:
+            brand_map[k] = v
+    for k, v in fallback_units.items():
+        if k not in unit_map:
+            unit_map[k] = v
+    return mat_map, brand_map, unit_map
+
+
+# 模块级加载词典
+_MATERIAL_ALIASES, _BRAND_ALIASES, _UNIT_ALIASES = _load_dictionaries()
+
+
 class DefaultMaterialNormalizer:
     """对物料名称、规格、品牌和单位进行轻量归一化。
 
     实现要点：
+      - 从外部 JSON 词典加载别名映射（dictionaries/materials.json）；
       - 对 `bom_lines` 与 `summary` 中的物料调用一致的清洗与别名映射；
-      - 优先使用确定性别名映射（`MATERIAL_ALIASES` / `BRAND_ALIASES`）；
-      - 在可用时使用 RapidFuzz 进行模糊匹配作为回退以提高召回。
+      - 优先使用确定性别名映射，在可用时使用 RapidFuzz 进行模糊匹配作为回退。
     """
 
-    MATERIAL_ALIASES = {
-        "断路器": "断路器",
-        "空气开关": "断路器",
-        "空开": "断路器",
-        "塑壳断路器": "断路器",
-        "接触器": "接触器",
-        "交流接触器": "接触器",
-        "热继电器": "热继电器",
-        "热过载继电器": "热继电器",
-        "按钮": "按钮",
-        "指示灯": "指示灯",
-    }
+    @property
+    def MATERIAL_ALIASES(self) -> dict[str, str]:
+        return _MATERIAL_ALIASES
 
-    BRAND_ALIASES = {
-        "施耐德": "施耐德",
-        "Schneider": "施耐德",
-        "SCHNEIDER": "施耐德",
-        "西门子": "西门子",
-        "Siemens": "西门子",
-        "SIEMENS": "西门子",
-        "ABB": "ABB",
-        "正泰": "正泰",
-        "CHINT": "正泰",
-    }
+    @property
+    def BRAND_ALIASES(self) -> dict[str, str]:
+        return _BRAND_ALIASES
 
-    UNIT_ALIASES = {
-        "台": "台",
-        "只": "只",
-        "个": "个",
-        "套": "套",
-        "件": "件",
-        "米": "米",
-        "m": "米",
-        "M": "米",
-    }
+    @property
+    def UNIT_ALIASES(self) -> dict[str, str]:
+        return _UNIT_ALIASES
 
     def normalize(self, result: ProjectResult) -> ProjectResult:
         """对传入的 `ProjectResult` 就地归一化物料字段并返回相同对象。

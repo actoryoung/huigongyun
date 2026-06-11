@@ -12,8 +12,8 @@
 
 - 已完成 Excel 主元器件清单解析、柜体清单生成、逐柜 BOM、项目汇总 BOM、基础校验、报价最小闭环、JSON / Excel 导出。
 - 已完成轻量 Web 演示壳与最小人机协同回灌闭环，可对 BOM / 柜体字段做人工修正后重导出。
-- 已完成 PDF、Word、图片、DWG 的解析适配器骨架，以及 OCR / 文档抽取 / 历史检索 / 相似匹配的接口预留。
-- 暂未实现的部分主要是图纸深度识别、多模态 OCR、RAG 检索、复杂商务报价和高级版本差异分析。
+- 已完成 PDF、Word、图片、DWG 的解析适配器，PDF 支持文本层检测与 OCR 回退，Word 支持段落/表格抽取，DWG 支持 DXF 文本提取，以及 OCR / 文档抽取 / 历史检索 / 相似匹配的接口预留。
+- 暂未实现的部分主要是图纸深度识别（版面分析、表格检测）、多模态 OCR、RAG 向量检索、复杂商务报价和高级版本差异分析。
 
 ## 当前能力
 
@@ -76,15 +76,34 @@ huigongyun --help
 - 未完成：真实多格式解析、复杂商务报价、高级校验、变更分析、演示脚本与完整评估报告。
 - 暂缓：复杂支持和高级校验先不做，保留接口与 `pending_*` 记号，等待后续数据格式正式下发。
 
-### 近期进展（2026-05-26）
+### DWG 图纸识别 — 准确性验证（2026-06-11）
+
+通过 `scripts/validate_dwg.py` 对 4 个项目 DWG 文件进行系统验证：
+
+| 项目 | DWG 格式 | 文本实体 | 柜号识别 | 柜型分类 | 综合质量 | 状态 |
+|------|---------|---------|---------|---------|---------|------|
+| A | AC1018 (AutoCAD 2004) | 413 | 10 (1UPS-1~4UPS-2) | 5 类 | **86%** | ✅ |
+| D | AC1015 (AutoCAD 2000) | 2459 | 7 (T1-T3,U1-U2,H1) | 3 类 | **61%** | ✅ |
+| B | AC1032 (AutoCAD 2018) | 0 | 0 | 0 | 20% | ❌ 格式不支持 |
+| C | AC1032 (AutoCAD 2018) | 0 | 0 | 0 | 20% | ❌ 格式不支持 |
+
+**结论**：
+- LibreDWG 对 AutoCAD 2000-2006 格式(AC1015/AC1018)支持良好，文本提取率 >60%
+- AutoCAD 2018+ 格式(AC1032)需要 ODA Converter 或降级到 Excel+PDF 参考方案
+- DWG 图纸用于柜体布局识别、柜型分类、技术参数提取，BOM 主数据来自 Excel
+- PDF 处理暂时保留接口，优先投入 DWG 完善
+
+### 近期进展（2026-06-11）
 
 - 已实现：Postgres 写入与 upsert（参见 src/huigongyun/storage/postgres_store.py），用于持久化运行/审计记录。
 - 已实现：任务层支持 Celery 异步任务并内建同步回退与重试策略（参见 src/huigongyun/tasks.py）。
 - 已实现：OCR PoC（TesseractAdapter）与演示脚本（src/huigongyun/parsing/ocr_adapter.py、scripts/ocr_poc.py）。
 - 已实现：导出器对 MinIO presigned URL 的 host/scheme 重写（参见 src/huigongyun/export/spreadsheet.py），支持 MINIO_PUBLIC_URL 环境变量。
+- 已实现：PDF OCR 回退流水线（PdfOcrParser: 文本层检测 → ocrmypdf → Tesseract 逐页 OCR）、DWG 转换与 DXF 文本提取、Word 段落/表格抽取。
 - 已实现：基本 CI 工作流已添加（.github/workflows/ci.yml）并推送到远端。
-- 本地测试：近期本地单元测试显示通过（历史记录：17 → 15 tests），但在自动化 runner 中多次遇到 pytest 或系统依赖不可用的情况（建议在 CI 中安装 tesseract、poppler-utils 以支持 OCR/integration tests）。
-- 待办：确认并移除/归档仓库中的大文件（例如 get-pip.py、huigongyun.egg-info、output/），并把 runtime 依赖同步到 pyproject.toml；在 CI 中增加系统包安装步骤以保证集成测试可运行。
+- 已实现：人机协同修正回灌闭环（Web 端 /edit 端点，支持 cabinet/BOM 字段编辑后重归一/重校验/重导出）。
+- 已整理：pyproject.toml 核心依赖已同步，文档一致性已修复。
+- 待办：确认并移除/归档仓库中的大文件（例如 get-pip.py、huigongyun.egg-info、image.png），在 CI 中增加系统包安装步骤以保证集成测试可运行。
 
 ## 给 qi 的简要总结
 
@@ -180,8 +199,9 @@ python scripts/ocr_poc.py tests/fixtures/ocr_sample.png
 
 ## 依赖说明
 
-- `requirements.txt`/`requirements-dev.txt`：列出用于本地开发与 CI 的常用依赖。建议用于快速安装与本地运行。
-- `pyproject.toml`：包含打包/发布元数据；当前可能未列出全部 runtime extras。建议在发布前将 runtime 依赖同步到 `pyproject.toml` 的 `project.dependencies`，或在 README 中明确说明两者的用途。
+- `pyproject.toml`：包含打包/发布元数据与核心 runtime 依赖（Flask、openpyxl、rapidfuzz、celery、redis、minio、psycopg2-binary、tenacity）。
+- `requirements.txt`：列出全部 runtime 依赖（含 OCR 可选依赖 pytesseract/pdf2image/Pillow），建议本地开发时使用。
+- `requirements-dev.txt`：在 `requirements.txt` 基础上叠加 pytest、ruff、mypy 等开发工具。
 
 本地快速安装示例：
 ```bash

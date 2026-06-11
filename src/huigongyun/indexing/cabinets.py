@@ -14,6 +14,24 @@ from typing import Any
 from ..models import CabinetRecord, ProjectDocument, SourceRef
 
 
+def _first_non_none(*values: Any) -> Any:
+    """Return the first non-None, non-empty value from the given arguments."""
+    for v in values:
+        if v is not None and v != "":
+            return v
+    return None
+
+
+def _parse_float_or_default(value: Any, default: float) -> float:
+    """Parse a value as float, returning default on failure."""
+    if value in (None, ""):
+        return float(default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 @dataclass(slots=True)
 class CabinetIndexResult:
     cabinets: list[CabinetRecord] = field(default_factory=list)
@@ -58,6 +76,10 @@ class CabinetIndexBuilder:
             sheet_name = str(sheet.get("name", "sheet"))
             if self._is_price_sheet(sheet_name, sheet):
                 continue
+
+            # Pre-header metadata from the sheet (cabinet-level info like 柜型/外形尺寸)
+            pre_meta: dict[str, Any] = sheet.get("pre_header_meta", {}) if isinstance(sheet, dict) else {}
+
             for record in sheet.get("records", []):
                 if not isinstance(record, dict):
                     continue
@@ -76,13 +98,15 @@ class CabinetIndexBuilder:
 
                 cabinet = cabinet_index.get(cabinet_no)
                 if cabinet is None:
+                    pre_qty = pre_meta.get("quantity", 1)
+                    qty_val = _first_non_none(self._first_value(record, self.QUANTITY_KEYS), pre_qty)
                     cabinet = CabinetRecord(
                         cabinet_no=cabinet_no,
-                        cabinet_type=self._first_text(record, self.CABINET_TYPE_KEYS),
+                        cabinet_type=_first_non_none(self._first_text(record, self.CABINET_TYPE_KEYS), pre_meta.get("cabinet_type")),
                         rated_current=self._first_text(record, self.RATED_CURRENT_KEYS),
-                        dimensions=self._first_dimension_text(record),
+                        dimensions=_first_non_none(self._first_dimension_text(record), pre_meta.get("dimensions")),
                         circuit_count=self._parse_optional_int(self._first_value(record, self.CIRCUIT_COUNT_KEYS)),
-                        quantity=self._parse_quantity(self._first_value(record, self.QUANTITY_KEYS), default=1),
+                        quantity=_parse_float_or_default(qty_val, default=1),
                         inbound_outbound=self._first_text(record, self.INBOUND_OUTBOUND_KEYS),
                         grounding_mode=self._first_text(record, self.GROUNDING_MODE_KEYS),
                         confidence=0.6,

@@ -22,11 +22,11 @@ class ExcelCabinetAndBomExtractor:
     CABINET_TYPE_KEYS = ("柜型", "cabinet_type", "类型")
     RATED_CURRENT_KEYS = ("额定电流", "电流", "In", "额定电流(A)")
     QUANTITY_KEYS = ("数量", "qty", "数量(台)", "件数")
-    MATERIAL_NAME_KEYS = ("物料名称", "名称", "元件名称", "设备名称", "物料", "品名")
-    SPEC_KEYS = ("规格型号", "规格", "型号", "型号规格", "spec")
+    MATERIAL_NAME_KEYS = ("物料名称", "元器件名称", "名称", "元件名称", "设备名称", "物料", "品名")
+    SPEC_KEYS = ("规格型号", "型号及规格", "规格", "型号", "型号规格", "spec")
     UNIT_KEYS = ("单位", "unit")
     BRAND_KEYS = ("品牌", "厂家", "生产厂家", "manufacturer")
-    LONG_LEAD_TIME_KEYS = ("长交期", "长交期标记", "交期提示", "lead_time", "lead_time_flag")
+    LONG_LEAD_TIME_KEYS = ("长交期", "长交期", "长交期标记", "交期提示", "lead_time", "lead_time_flag")
     PRICE_SHEET_HINTS = ("价格表", "报价表", "单价表", "价格清单")
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
