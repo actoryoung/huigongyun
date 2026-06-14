@@ -28,6 +28,9 @@ huigongyun-web = "huigongyun.webapp:main"
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0", "ruff>=0.6.0", "mypy>=1.11.0"]
 web = ["Flask>=3.0.0"]
+ocr = ["pytesseract", "pdf2image", "Pillow"]
+vision-llm = ["openai", "anthropic", "google-generativeai"]
+marker = ["marker-pdf"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

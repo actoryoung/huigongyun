@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(wc:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(docker:*)",
+      "Bash(pip:*)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(gh:*)"
+    ]
+  }
+}

@@ -1,12 +1,6 @@
 # Runtime dependencies for the MVP roadmap.
 #
-# Current scaffold can run with the Python standard library only.
-# These packages are added for the next implementation steps:
-# - Excel parsing and data shaping
-# - PDF/table extraction
-# - Material normalization and fuzzy matching
-# - Lightweight web demo shell
-
+# Core dependencies (required):
 pandas>=2.2.0
 openpyxl>=3.1.5
 rapidfuzz>=3.9.0
@@ -18,7 +12,18 @@ redis>=4.5.0
 minio>=7.1.1
 psycopg2-binary>=2.9.7
 tenacity>=8.2.2
-# OCR PoC runtime (optional for unit tests which are monkeypatched)
+
+# PDF OCR — traditional (optional, system deps: tesseract-ocr, poppler-utils)
 pytesseract
 pdf2image
 Pillow
+
+# PDF OCR — Vision LLM (optional, requires API key)
+#   Set VISION_LLM_PROVIDER + *_API_KEY env vars; module lazy-loads at runtime.
+# openai          # GPT-4o / GPT-4o-mini
+# anthropic       # Claude Sonnet / Opus
+# google-generativeai  # Gemini Flash / Pro
+
+# PDF OCR — Marker local ML (optional, ~5 GB model download on first use, CPU only)
+#   pip install marker-pdf  (pulls torch, transformers, surya-ocr as transitive deps)
+# marker-pdf
