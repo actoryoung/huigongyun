@@ -38,27 +38,45 @@ except Exception:
     _HAS_CONSTRAINT = False
 
 # ── Project configuration ────────────────────────────────────────────
+
+# 获取当前脚本的父目录的父目录，即项目根目录 (D:\CODE\huigongyun)
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 PROJECTS = {
     "A": {
         "name": "项目A_IDC机房配电",
         "excel": None,
         "word": None,
-        "pdf": "example0516./项目A_IDC机房配电/输入资料/项目A_系统图.pdf",
+        "pdf": str(BASE_DIR / "examples/项目A_IDC机房配电/输入资料/项目A_系统图.pdf"),
     },
     "B": {
         "name": "项目B_学校配电工程",
-        "excel": "example0516./项目B_学校配电工程/输入资料/项目B_主元件清单.xlsx",
-        "word": "example0516./项目B_学校配电工程/输入资料/项目B_报价说明.docx",
-        "pdf": "example0516./项目B_学校配电工程/输入资料/项目B_询价图纸.pdf",
+        "excel": str(
+            BASE_DIR / "examples/项目B_学校配电工程/输入资料/项目B_主元件清单.xlsx"
+        ),
+        "word": str(
+            BASE_DIR / "examples/项目B_学校配电工程/输入资料/项目B_报价说明.docx"
+        ),
+        "pdf": str(
+            BASE_DIR / "examples/项目B_学校配电工程/输入资料/项目B_询价图纸.pdf"
+        ),
     },
     "C": {
         "name": "项目C_厂房配电资料更新",
-        "excel": "example0516./项目C_厂房配电资料更新/输入资料/项目C_主元器件清单.xlsx",
-        "word": "example0516./项目C_厂房配电资料更新/输入资料/项目C_配置说明.docx",
+        "excel": str(
+            BASE_DIR
+            / "examples/项目C_厂房配电资料更新/输入资料/项目C_主元器件清单.xlsx"
+        ),
+        "word": str(
+            BASE_DIR / "examples./项目C_厂房配电资料更新/输入资料/项目C_配置说明.docx"
+        ),
     },
     "D": {
         "name": "项目D_中英文设备清单",
-        "excel": "example0516./项目D_中英文设备清单/输入资料/项目D_设备清单_20250701.xlsx",
+        "excel": str(
+            BASE_DIR
+            / "example0516./项目D_中英文设备清单/输入资料/项目D_设备清单_20250701.xlsx"
+        ),
         "word": None,
     },
 }
