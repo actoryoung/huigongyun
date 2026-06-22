@@ -24,12 +24,15 @@ from collections import Counter
 from pathlib import Path
 
 # Ensure the src directory is on the path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+# 把第 27 行改为指向项目根目录
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from huigongyun.bootstrap import build_default_pipeline, build_context
-from huigongyun.parsing.word import WordSourceParser
+from src.bootstrap import build_default_pipeline, build_context
+from src.parsing.word import WordSourceParser
+
 try:
-    from huigongyun.parsing.constraint_extractor import TechnicalConstraintExtractor
+    from src.parsing.constraint_extractor import TechnicalConstraintExtractor
+
     _HAS_CONSTRAINT = True
 except Exception:
     _HAS_CONSTRAINT = False
@@ -78,7 +81,9 @@ def process_word_constraints(word_path: str) -> dict | None:
         return None
     parser = WordSourceParser()
     doc = parser.parse(str(Path(word_path).resolve()))
-    constraints = doc.metadata.get("constraints") if isinstance(doc.metadata, dict) else None
+    constraints = (
+        doc.metadata.get("constraints") if isinstance(doc.metadata, dict) else None
+    )
     if constraints:
         return {
             "status": "ok",
@@ -118,13 +123,15 @@ def _build_demo_summary(result) -> dict:
     # Top materials by quantity
     top_materials = []
     for m in sorted(result.summary, key=lambda x: x.quantity, reverse=True)[:10]:
-        top_materials.append({
-            "name": m.normalized_name or m.name,
-            "spec": m.spec or "",
-            "brand": m.brand or "",
-            "quantity": m.quantity,
-            "unit": m.unit or "",
-        })
+        top_materials.append(
+            {
+                "name": m.normalized_name or m.name,
+                "spec": m.spec or "",
+                "brand": m.brand or "",
+                "quantity": m.quantity,
+                "unit": m.unit or "",
+            }
+        )
 
     # Brand distribution
     brands = Counter(m.brand or m.manufacturer for m in result.summary)
@@ -182,11 +189,15 @@ def print_report(demo_summary: dict, word_info: dict | None = None) -> None:
 
     print(f"\n  🏭 柜体列表 (前10):")
     for c in demo_summary.get("cabinets", [])[:10]:
-        print(f"     {c['no']:12s} | 类型={c['type'] or '?'} | 尺寸={c['dimensions'] or '?'} | 数量={c['quantity']}")
+        print(
+            f"     {c['no']:12s} | 类型={c['type'] or '?'} | 尺寸={c['dimensions'] or '?'} | 数量={c['quantity']}"
+        )
 
     print(f"\n  📦 物料汇总 (Top 10):")
     for i, m in enumerate(demo_summary.get("top_materials", []), 1):
-        print(f"     {i:2d}. {m['name']:20s} {m['spec']:30s} | {m['brand']:8s} | x{m['quantity']} {m['unit']}")
+        print(
+            f"     {i:2d}. {m['name']:20s} {m['spec']:30s} | {m['brand']:8s} | x{m['quantity']} {m['unit']}"
+        )
 
     print(f"\n  🏷️ 品牌分布:")
     for brand, cnt in demo_summary.get("brand_distribution", {}).items():
@@ -211,13 +222,21 @@ def main() -> int:
         description="低压电气成套智能报价清单生成系统 — Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--project", "-p", choices=list(PROJECTS.keys()), default="B",
-                        help="选择样例项目 (default: B)")
+    parser.add_argument(
+        "--project",
+        "-p",
+        choices=list(PROJECTS.keys()),
+        default="B",
+        help="选择样例项目 (default: B)",
+    )
     parser.add_argument("--input", "-i", help="直接指定输入文件路径")
-    parser.add_argument("--output", "-o", default="./demo_output",
-                        help="输出目录 (default: ./demo_output)")
-    parser.add_argument("--no-word", action="store_true",
-                        help="跳过 Word 约束抽取")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="./demo_output",
+        help="输出目录 (default: ./demo_output)",
+    )
+    parser.add_argument("--no-word", action="store_true", help="跳过 Word 约束抽取")
     args = parser.parse_args()
 
     # Determine input path
@@ -265,8 +284,12 @@ def main() -> int:
     # Step 3: Save summary
     summary_file = output_dir / "demo_summary.json"
     summary_file.write_text(
-        json.dumps({"pipeline": summary, "word_constraints": word_info},
-                   ensure_ascii=False, indent=2, default=str),
+        json.dumps(
+            {"pipeline": summary, "word_constraints": word_info},
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
         encoding="utf-8",
     )
 
