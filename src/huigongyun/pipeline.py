@@ -14,7 +14,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, PipelineContext, ProjectParser, QuoteGenerator, Validator
+from .interfaces import (
+    BomGenerator,
+    CabinetExtractor,
+    Exporter,
+    HistoricalCaseRetriever,
+    MaterialNormalizer,
+    PipelineContext,
+    ProjectParser,
+    QuoteGenerator,
+    Validator,
+)
 from .models import ProjectResult
 
 
@@ -27,6 +37,7 @@ class Pipeline:
     quote_generator: QuoteGenerator
     validator: Validator
     exporter: Exporter
+    retriever: HistoricalCaseRetriever | None = None
 
     def run(self, context: PipelineContext) -> ProjectResult:
         """顺序执行流水线各阶段。
@@ -41,6 +52,16 @@ class Pipeline:
         result = self.extractor.extract(document)
         result = self.normalizer.normalize(result)
         result = self.bom_generator.generate(result)
+
+        # 可选：在生成报价前执行历史检索，为上下文提供相似案例
+        if self.retriever is not None:
+            from dataclasses import asdict
+            query = {"project_name": result.project.project_name}
+            similar = self.retriever.search(query, top_k=3)
+            result.project.metadata["similar_cases"] = [
+                asdict(h) for h in similar
+            ]
+
         result = self.quote_generator.generate(result)
         result = self.validator.validate(result)
         result.outputs = self.exporter.export(result, context.output_dir)

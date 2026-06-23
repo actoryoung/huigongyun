@@ -29,7 +29,7 @@ def build_default_pipeline() -> Pipeline:
     """构造默认的 `Pipeline`，并用标准适配器进行组装。
 
     返回：已组装、可直接运行的 `Pipeline` 实例。"""
-    return Pipeline(
+    pipeline = Pipeline(
         parser=DefaultProjectParser(),
         extractor=DefaultCabinetExtractor(),
         normalizer=DefaultMaterialNormalizer(),
@@ -38,6 +38,19 @@ def build_default_pipeline() -> Pipeline:
         validator=DefaultValidator(),
         exporter=DefaultExporter(),
     )
+
+    # 可选：若 FAISS + sentence-transformers 可用则注入检索器
+    try:
+        from .retrieval import FaissCaseRetriever, SentenceTransformerProvider
+
+        provider = SentenceTransformerProvider()
+        retriever = FaissCaseRetriever(provider)
+        if retriever.is_available:
+            pipeline.retriever = retriever
+    except (ImportError, OSError):
+        pass  # 依赖未安装时静默跳过
+
+    return pipeline
 
 
 def build_context(input_path: str, output_dir: str) -> PipelineContext:

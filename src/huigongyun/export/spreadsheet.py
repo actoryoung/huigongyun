@@ -212,11 +212,12 @@ class ProjectExporter:
     def _write_issues_sheet(self, workbook: Workbook, result: ProjectResult) -> None:
         """写入校验/待确认问题列表，便于人工审阅与追溯。"""
         sheet = workbook.create_sheet("Issues")
-        sheet.append(["issue_type", "severity", "message", "cabinet_no", "material_name", "details"])
+        sheet.append(["issue_type", "severity", "risk_level", "message", "cabinet_no", "material_name", "details"])
         for issue in result.issues:
             sheet.append([
                 issue.issue_type,
                 issue.severity,
+                getattr(issue, "risk_level", "info"),
                 issue.message,
                 issue.cabinet_no,
                 issue.material_name,

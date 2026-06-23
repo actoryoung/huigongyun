@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import Counter
 
 from ..models import BomLine, ProjectResult, ValidationIssue
+from .risk import RiskClassifier
 
 
 class DefaultProjectValidator:
@@ -23,6 +24,19 @@ class DefaultProjectValidator:
         issues.extend(self._validate_long_lead_time(result))
         issues.extend(self._validate_quote_prices(result))
         issues.extend(self._validate_pending_marks(result))
+
+        # 风险分级：默认映射 + 上下文升级
+        classifier = RiskClassifier()
+        issues = classifier.classify(issues, result)
+
+        # 存储风险仪表盘到项目元数据
+        dashboard = classifier.build_dashboard(issues)
+        result.project.metadata["risk_dashboard"] = {
+            "level_counts": dashboard.level_counts,
+            "escalated_items": dashboard.escalated_items,
+            "total_issues": dashboard.total_issues,
+        }
+
         result.issues = issues
         return result
 

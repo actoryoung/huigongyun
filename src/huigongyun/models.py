@@ -95,6 +95,7 @@ class ValidationIssue:
     issue_type: str
     severity: str
     message: str
+    risk_level: str = "info"
     cabinet_no: str | None = None
     material_name: str | None = None
     source: SourceRef | None = None
