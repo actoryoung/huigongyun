@@ -13,8 +13,9 @@ demo_output/
 src/huigongyun.egg-info/
 
 # Examples — large files (DWG/PDF/XLSX), not for git
-# examples/
+examples/
 
 # Claude Code — local-only settings (API keys, personal prefs)
 .claude/settings.local.json
 
+reference/
