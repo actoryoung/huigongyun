@@ -24,14 +24,13 @@ from collections import Counter
 from pathlib import Path
 
 # Ensure the src directory is on the path
-# 把第 27 行改为指向项目根目录
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from src.bootstrap import build_default_pipeline, build_context
-from src.parsing.word import WordSourceParser
+from huigongyun.bootstrap import build_default_pipeline, build_context
+from huigongyun.parsing.word import WordSourceParser
 
 try:
-    from src.parsing.constraint_extractor import TechnicalConstraintExtractor
+    from huigongyun.parsing.constraint_extractor import TechnicalConstraintExtractor
 
     _HAS_CONSTRAINT = True
 except Exception:
@@ -68,14 +67,18 @@ PROJECTS = {
             / "examples/项目C_厂房配电资料更新/输入资料/项目C_主元器件清单.xlsx"
         ),
         "word": str(
-            BASE_DIR / "examples./项目C_厂房配电资料更新/输入资料/项目C_配置说明.docx"
+            BASE_DIR / "examples/项目C_厂房配电资料更新/输入资料/项目C_配置说明.docx"
         ),
     },
     "D": {
         "name": "项目D_中英文设备清单",
         "excel": str(
             BASE_DIR
-            / "example0516./项目D_中英文设备清单/输入资料/项目D_设备清单_20250701.xlsx"
+            / "examples/项目D_中英文设备清单/输入资料/项目D_设备清单_20250701.xlsx"
+        ),
+        "excel_new": str(
+            BASE_DIR
+            / "examples/项目D_中英文设备清单/输入资料/项目D_设备清单_新版.xlsx"
         ),
         "word": None,
     },

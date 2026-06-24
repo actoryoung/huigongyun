@@ -35,7 +35,10 @@
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
-| 版本差异 — Web UI | ❌ | diff 可视化待做
+| 版本差异 — Web UI | ❌ | diff 可视化待做 |
+| Vision LLM API Key 配置 | ⏳ | 待配置 OPENAI/ANTHROPIC/GOOGLE_API_KEY，激活 PDF CAD 图纸识别 |
+| 价格表数据接入 | ⏳ | 待用户提供价格表文件，填充 unit_price + price_source |
+| SimilarMaterialMatcher 实现 | ❌ | 基于向量检索的物料相似匹配，接口已预留 |
 | 多源融合校验 | ❌ | Excel+DWG+Word跨源柜号一致性，等待三模块各自稳定 |
 | DWG AC1032 | ⏸ | 需ODA Converter (商业许可)，LibreDWG不支持 |
 | 复杂商务报价 | ⏸ | 税率/折扣/运费/利润模型，不在当前scope |
@@ -46,9 +49,9 @@
 1. ~~PDF矢量图识别~~ ✅ (vision_llm.py + marker_adapter.py + pdf.py 五级回退链)
 2. ~~版本差异 Demo~~ ✅ (comparison/differ.py + scripts/demo_version_diff.py)
 3. ~~风险分级体系~~ ✅ (validation/risk.py RiskClassifier + ValidationIssue.risk_level)
-4. ~~历史检索 RAG~~ ✅ (retrieval/faiss_index.py FaissCaseRetriever，可选 faiss-cpu + sentence-transformers)
-5. **版本差异 Web UI** — 在 Web 壳中展示 diff 可视化
-6. **SimilarMaterialMatcher 实现** — 基于向量检索的物料相似匹配
+4. ~~历史检索 RAG~~ ✅ (retrieval/faiss_index.py FaissCaseRetriever)
+5. **价格表数据接入** — 待用户提供价格表文件
+6. **Vision LLM API Key 配置** — 激活 PDF CAD 图纸 Vision LLM 识别路径
 
 ## 架构概览
 

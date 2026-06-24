@@ -62,17 +62,21 @@ def main():
     # 构建流水线
     pipeline = build_default_pipeline()
 
+    import tempfile
+
     # 解析旧版本
     print("正在解析旧版本...")
-    ctx_old = build_context(str(old_path))
-    result_old = pipeline.run(ctx_old)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ctx_old = build_context(str(old_path), tmpdir)
+        result_old = pipeline.run(ctx_old)
     print(f"  柜体: {len(result_old.cabinets)}, BOM行: {len(result_old.bom_lines)}, "
           f"汇总: {len(result_old.summary)}, 问题: {len(result_old.issues)}")
 
     # 解析新版本
     print("正在解析新版本...")
-    ctx_new = build_context(str(new_path))
-    result_new = pipeline.run(ctx_new)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ctx_new = build_context(str(new_path), tmpdir)
+        result_new = pipeline.run(ctx_new)
     print(f"  柜体: {len(result_new.cabinets)}, BOM行: {len(result_new.bom_lines)}, "
           f"汇总: {len(result_new.summary)}, 问题: {len(result_new.issues)}")
 
