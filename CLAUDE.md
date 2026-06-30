@@ -33,6 +33,7 @@
 | 版本差异 Demo | ✅ | `comparison/` VersionDiffer，项目D 12 单元测试 + 3 集成测试 |
 | 风险分级体系 | ✅ | `validation/risk.py` RiskClassifier + 4 升级规则 + RiskDashboard |
 | 历史检索 RAG | ✅ | `retrieval/` FAISS + sentence-transformers，Pipeline 可选集成 |
+| 辅材规则注入 | ✅ | `generation/rules.py` AuxMaterialInjector，柜型/接地/进出线三层叠加，86 用例 |
 | HH Django 前端接线 | ✅ | `src/HH/` 外部项目 (String-Wan/HH)，analyze_file 已接入 huigongyun 流水线，PR 工作流 |
 
 ### 未完成 / 暂缓
@@ -126,7 +127,7 @@ scripts/
   check_worker_nonroot.sh # 检查 worker 非 root 运行
 
 tests/
-  unit/                  # 单元测试 (187 个用例，30 个测试文件)
+  unit/                  # 单元测试 (256 个用例，31 个测试文件)
   integration/           # 集成测试
   e2e/                   # 端到端测试
   fixtures/              # 共享测试样例数据
@@ -211,7 +212,7 @@ PYTHONPATH=src pytest -p no:launch_testing --ignore=reference
 PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 ```
 
-**当前测试状态 (2026-06-30):** 187 collected, 183 passed, 2 failed, 2 skipped
+**当前测试状态 (2026-06-30):** 278 collected, 274 passed, 2 failed, 2 skipped
 - 2 个 webapp e2e 测试失败（需要 Flask 测试环境配置）
 - 2 个 retrieval/ocr 慢测试标记为 skip
 
