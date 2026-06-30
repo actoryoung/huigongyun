@@ -188,14 +188,33 @@ class AuxMaterialInjector:
     # ── 公共入口 ───────────────────────────────────────────────────
 
     def inject(self, result: ProjectResult) -> ProjectResult:
-        """遍历 cabinets 逐柜注入辅材 BomLine。"""
+        """遍历 cabinets 逐柜注入辅材 BomLine，合并去重。"""
         for cabinet in result.cabinets:
             new_lines: list[BomLine] = []
             new_lines += self._apply_cabinet_type(cabinet)
             new_lines += self._apply_grounding(cabinet)
             new_lines += self._apply_inbound(cabinet)
-            result.bom_lines.extend(new_lines)
+            self._merge_into_existing(new_lines, result.bom_lines)
         return result
+
+    # ── 合并去重 ───────────────────────────────────────────────────
+
+    def _merge_into_existing(self, new_lines: list[BomLine], existing: list[BomLine]) -> None:
+        """将新 BomLine 合并到现有列表，同名同规格同柜号 quantity 相加。"""
+        for new_line in new_lines:
+            merged = False
+            for exist_line in existing:
+                if (
+                    exist_line.cabinet_no == new_line.cabinet_no
+                    and exist_line.material.name == new_line.material.name
+                    and exist_line.material.spec == new_line.material.spec
+                    and exist_line.material.brand == new_line.material.brand
+                ):
+                    exist_line.material.quantity += (new_line.material.quantity or 0)
+                    merged = True
+                    break
+            if not merged:
+                existing.append(new_line)
 
     # ── 单层注入 ───────────────────────────────────────────────────
 

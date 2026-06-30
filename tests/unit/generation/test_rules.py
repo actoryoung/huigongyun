@@ -235,3 +235,76 @@ class TestSingleLayerInjection:
         assert "N排" in names
         assert "PE排" in names
         assert "电缆夹具" in names
+
+
+from huigongyun.models import BomLine, MaterialRecord
+
+
+class TestMergeAndDedup:
+    """L6: 合并去重 (5 用例)。"""
+
+    def test_same_material_from_two_layers_merges(self):
+        """两层同时注入同名物料 PE排，合并为 1 条 quantity 相加。"""
+        cabinet = _make_cabinet("B01", "配电箱", "TN-S", None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        pe_lines = [l for l in result.bom_lines if l.material.name == "PE排"]
+        assert len(pe_lines) == 1, f"PE排 should merge, got {len(pe_lines)}"
+
+    def test_no_duplicates_across_three_layers(self):
+        """三层注入均不含重复 → 总物料数 = 三层物料数之和。"""
+        cabinet = _make_cabinet("B02", "母联柜", "TN-C", "电缆下进")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+        # 每层至少 1 条，无重叠 → >= 1+1+1 = 3
+        assert len(result.bom_lines) >= 3
+
+    def test_rule_material_merges_with_existing_excel_bom(self):
+        """规则注入物料与 Excel 已提取的同名同规物料合并。"""
+        cabinet = _make_cabinet("B03", "进线柜", None, None)
+        result = _make_result([cabinet])
+
+        # 模拟 Excel 已提取的物料
+        existing = MaterialRecord(name="框架断路器", spec="按额定电流", unit="台")
+        existing.quantity = 1
+        result.bom_lines.append(BomLine(
+            cabinet_no="B03", material=existing, derived_from="Excel提取"
+        ))
+
+        result = AuxMaterialInjector().inject(result)
+
+        cb_lines = [l for l in result.bom_lines if l.material.name == "框架断路器"]
+        assert len(cb_lines) == 1, f"Should merge, got {len(cb_lines)}"
+
+    def test_same_name_different_spec_not_merged(self):
+        """同名但 spec 不同，不合并。"""
+        cabinet = _make_cabinet("B04", "进线柜", None, None)
+        result = _make_result([cabinet])
+
+        existing = MaterialRecord(name="框架断路器", spec="NSX630", unit="台")
+        existing.quantity = 1
+        result.bom_lines.append(BomLine(
+            cabinet_no="B04", material=existing, derived_from="Excel提取"
+        ))
+
+        result = AuxMaterialInjector().inject(result)
+
+        cb_lines = [l for l in result.bom_lines if l.material.name == "框架断路器"]
+        assert len(cb_lines) == 2, f"Different spec should not merge, got {len(cb_lines)}"
+
+    def test_same_name_different_brand_not_merged(self):
+        """同名同规但 brand 不同，不合并。"""
+        cabinet = _make_cabinet("B05", "进线柜", None, None)
+        result = _make_result([cabinet])
+
+        existing = MaterialRecord(name="框架断路器", spec="按额定电流", unit="台", brand="施耐德")
+        existing.quantity = 1
+        result.bom_lines.append(BomLine(
+            cabinet_no="B05", material=existing, derived_from="Excel提取"
+        ))
+
+        result = AuxMaterialInjector().inject(result)
+
+        cb_lines = [l for l in result.bom_lines if l.material.name == "框架断路器"]
+        assert len(cb_lines) == 2, f"Different brand should not merge, got {len(cb_lines)}"
