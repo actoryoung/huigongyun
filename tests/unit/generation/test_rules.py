@@ -147,3 +147,91 @@ class TestInboundOutboundNormalization:
     def test_normalize_unknown_returns_none(self, raw):
         injector = AuxMaterialInjector()
         assert injector._normalize_inbound(raw) is None
+
+
+from huigongyun.models import CabinetRecord, ProjectDocument, ProjectResult
+
+
+def _make_cabinet(cabinet_no="1AA1", cabinet_type=None, grounding=None, inbound=None, **kw):
+    return CabinetRecord(
+        cabinet_no=cabinet_no,
+        cabinet_type=cabinet_type,
+        grounding_mode=grounding,
+        inbound_outbound=inbound,
+        **kw,
+    )
+
+
+def _make_result(cabinets):
+    doc = ProjectDocument(project_name="test")
+    return ProjectResult(project=doc, cabinets=cabinets)
+
+
+class TestSingleLayerInjection:
+    """L5: 单层注入 (6 用例)。"""
+
+    def test_all_three_layers_populated(self):
+        """三层属性全有，注入物料数 = 各层之和。"""
+        cabinet = _make_cabinet("1AA1", "进线柜", "TN-S", "电缆上进")
+        result = _make_result([cabinet])
+        injector = AuxMaterialInjector()
+        result = injector.inject(result)
+
+        assert len(result.bom_lines) > 0
+        names = [line.material.name for line in result.bom_lines]
+        assert "框架断路器" in names
+        assert "浪涌保护器" in names
+        assert "N排" in names or "PE排" in names
+        assert "电缆夹具" in names
+
+    def test_cabinet_type_only(self):
+        """仅柜型，接地和进出线为空，仅注入柜型模板物料。"""
+        cabinet = _make_cabinet("1AA2", "母联柜", None, None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [line.material.name for line in result.bom_lines]
+        assert "框架断路器" in names
+        assert "多功能表" in names
+        assert len(result.bom_lines) >= 3
+
+    def test_grounding_only(self):
+        """仅接地方式，无柜型和进出线，仅注入接地物料。"""
+        cabinet = _make_cabinet("1AA3", None, "TN-C", None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [line.material.name for line in result.bom_lines]
+        assert "PEN排" in names
+        assert len(result.bom_lines) >= 1
+
+    def test_inbound_only(self):
+        """仅进出线方式，仅注入进出线辅材。"""
+        cabinet = _make_cabinet("1AA4", None, None, "母线槽进线")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [line.material.name for line in result.bom_lines]
+        assert "过渡母排" in names
+        assert "母线连接件" in names
+
+    def test_all_empty_attributes_no_injection(self):
+        """三个属性全部为空，不注入任何物料。"""
+        cabinet = _make_cabinet("1AA5", None, None, None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        assert len(result.bom_lines) == 0
+
+    def test_compensation_cabinet_with_grounding(self):
+        """补偿柜 + TN-S + 电缆下进，三层叠加。"""
+        cabinet = _make_cabinet("1AA6", "补偿柜", "TN-S", "电缆下进")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [line.material.name for line in result.bom_lines]
+        assert "隔离开关" in names
+        assert "电容器" in names
+        assert "N排" in names
+        assert "PE排" in names
+        assert "电缆夹具" in names

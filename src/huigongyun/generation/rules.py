@@ -188,5 +188,67 @@ class AuxMaterialInjector:
     # ── 公共入口 ───────────────────────────────────────────────────
 
     def inject(self, result: ProjectResult) -> ProjectResult:
-        """遍历 cabinets 逐柜注入辅材 BomLine（当前骨架，Task 4 实现）。"""
+        """遍历 cabinets 逐柜注入辅材 BomLine。"""
+        for cabinet in result.cabinets:
+            new_lines: list[BomLine] = []
+            new_lines += self._apply_cabinet_type(cabinet)
+            new_lines += self._apply_grounding(cabinet)
+            new_lines += self._apply_inbound(cabinet)
+            result.bom_lines.extend(new_lines)
         return result
+
+    # ── 单层注入 ───────────────────────────────────────────────────
+
+    def _apply_cabinet_type(self, cabinet: CabinetRecord) -> list[BomLine]:
+        """根据柜型注入模板物料。"""
+        key = self._normalize_cabinet_type(cabinet.cabinet_type)
+        if key is None:
+            return []
+        template = self._rules["cabinet_type_templates"].get(key)
+        if template is None:
+            return []
+        return self._materials_to_bom_lines(template["materials"], cabinet, f"柜型:{key}")
+
+    def _apply_grounding(self, cabinet: CabinetRecord) -> list[BomLine]:
+        """根据接地方式注入追加物料。"""
+        key = self._normalize_grounding(cabinet.grounding_mode)
+        if key is None:
+            return []
+        materials = self._rules["grounding_materials"].get(key, [])
+        if not materials:
+            return []
+        return self._materials_to_bom_lines(materials, cabinet, f"接地:{key}")
+
+    def _apply_inbound(self, cabinet: CabinetRecord) -> list[BomLine]:
+        """根据进出线方式注入辅材。"""
+        key = self._normalize_inbound(cabinet.inbound_outbound)
+        if key is None:
+            return []
+        materials = self._rules["inbound_outbound_materials"].get(key, [])
+        if not materials:
+            return []
+        return self._materials_to_bom_lines(materials, cabinet, f"进出线:{key}")
+
+    # ── 辅助方法 ───────────────────────────────────────────────────
+
+    def _materials_to_bom_lines(
+        self, materials: list[dict[str, Any]], cabinet: CabinetRecord, rule_label: str
+    ) -> list[BomLine]:
+        """将规则物料字典列表转换为 BomLine 列表。"""
+        lines: list[BomLine] = []
+        for mat in materials:
+            material = MaterialRecord(
+                name=mat["name"],
+                spec=mat.get("spec"),
+                unit=mat.get("unit"),
+                quantity=mat.get("quantity", 1) if isinstance(mat.get("quantity"), (int, float)) else 0.0,
+                source=SourceRef(file_name="bom_rules", file_type="rule", excerpt=rule_label),
+                confidence=0.7,
+                remarks=rule_label,
+            )
+            lines.append(BomLine(
+                cabinet_no=cabinet.cabinet_no,
+                material=material,
+                derived_from="规则推算",
+            ))
+        return lines
