@@ -5,6 +5,7 @@ argument-hint: "要调研的问题/关键词/期望输出"
 tools: [read, search]
 agents: []
 user-invocable: true
+model: haiku
 ---
 Constraints:
 - 禁止修改文件或执行命令；仅做阅读、定位与结论性总结。

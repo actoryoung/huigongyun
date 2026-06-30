@@ -5,6 +5,7 @@ argument-hint: "当前已有功能 + 需要交付的材料清单"
 tools: [read, search, edit]
 agents: []
 user-invocable: true
+model: haiku
 ---
 Output:
 - README、运行步骤、示例数据、演示脚本说明（中文）。

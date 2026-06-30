@@ -5,6 +5,7 @@ argument-hint: "文件类型 + 样例列名/截图 + 目标字段"
 tools: [read, search, edit, execute]
 agents: []
 user-invocable: true
+model: haiku
 ---
 Tech stack (建议): Python + pandas/openpyxl；后续按需扩展 pdfminer/pyPDF2/Tesseract。
 Constraints:

@@ -5,6 +5,7 @@ argument-hint: "目标输出字段 + 归一/合并规则偏好 + 需要覆盖的
 tools: [read, search, edit, execute]
 agents: []
 user-invocable: true
+model: sonnet
 ---
 Tech stack (建议): Python + rapidfuzz/pydantic；规则以可配置字典/规则表起步。
 Constraints:

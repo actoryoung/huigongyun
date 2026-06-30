@@ -5,6 +5,7 @@ argument-hint: "改动范围/分支或文件 + 期望验收/担忧点"
 tools: [read, search, execute]
 agents: []
 user-invocable: true
+model: sonnet
 hooks:
   SessionStart: bash -lc "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && (echo BRANCH=$(git branch --show-current); git status --porcelain) || echo NO_GIT_REPO"
 ---

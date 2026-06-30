@@ -19,9 +19,12 @@
 | PDF 解析 | ✅ | 五级回退链：文本层→Marker→VisionLLM→ocrmypdf→Tesseract |
 | Vision LLM 适配器 | ✅ | OpenAI GPT-4o / Claude / Gemini 三后端 |
 | Marker 本地适配器 | ✅ | CPU 可跑，~89%表格精度，免费兜底 |
-| 物料归一 | ✅ | 85物料别名+38品牌别名 JSON外置词典，RapidFuzz 模糊回退 |
+| 物料归一 | ✅ | 22类物料别名+13品牌别名+5单位别名 JSON外置词典，含国产品牌默认映射与规格正则，RapidFuzz 模糊回退 |
+| 品牌归一化回退链 | ✅ | 精确匹配→大小写不敏感→别名映射→类别默认品牌→RapidFuzz模糊 |
 | 报价生成 | ✅ | 最小闭环：单价/小计/柜体汇总/项目总价/缺价提示 |
-| 校验引擎 | ✅ | 7类规则：缺项/重复/品牌冲突/长交期/缺价/pending_* |
+| 校验引擎 | ✅ | 7类本地规则 + 5条跨源规则（柜号一致性/数量/冲突等） |
+| 多源融合校验 | ✅ | `parsing/multi_source.py` MultiSourceParser + `validation/cross_source.py` 5条跨源规则 |
+| 物料相似匹配 | ✅ | `retrieval/matcher.py` EmbeddingMaterialMatcher，基于 sentence-transformers 向量余弦相似度 |
 | 导出 | ✅ | JSON + Excel 7 sheets + MinIO presigned URL |
 | Web 演示壳 | ✅ | Flask，上传→运行→展示→下载→人工修正→重导出 |
 | 人机协同回灌 | ✅ | Web /edit 端点，BOM/柜体字段编辑后重归一/重校验/重导出 |
@@ -39,8 +42,6 @@
 | 版本差异 — Web UI | ❌ | diff 可视化待做 |
 | Vision LLM API Key 配置 | ⏳ | 待配置 OPENAI/ANTHROPIC/GOOGLE_API_KEY，激活 PDF CAD 图纸识别 |
 | 价格表数据接入 | ⏳ | 待用户提供价格表文件，填充 unit_price + price_source |
-| SimilarMaterialMatcher 实现 | ❌ | 基于向量检索的物料相似匹配，接口已预留 |
-| 多源融合校验 | ❌ | Excel+DWG+Word跨源柜号一致性，等待三模块各自稳定 |
 | DWG AC1032 | ⏸ | 需ODA Converter (商业许可)，LibreDWG不支持 |
 | 复杂商务报价 | ⏸ | 税率/折扣/运费/利润模型，不在当前scope |
 | CI/CD 自动测试 | ⏸ | 暂不启用，测试手动运行 `pytest` |
@@ -57,13 +58,15 @@
 ## 架构概览
 
 ```
-输入文件(DWG/PDF/Excel/Word/图片)
-  → parsing/      — 格式解析器（按后缀路由），输出 ProjectDocument
-  → normalization/— 物料名/品牌/规格/单位归一
+输入文件(DWG/PDF/Excel/Word/图片/目录)
+  → parsing/      — 格式解析器（按后缀路由，MultiSourceParser 目录感知分发），输出 ProjectDocument
+  → normalization/— 物料名/品牌/规格/单位归一（词典映射 + RapidFuzz 模糊 + 品牌回退链）
   → generation/   — 逐柜BOM + 项目汇总BOM
   → pricing/      — 基于汇总BOM二次报价计算（不耦合解析层）
-  → validation/   — 7类校验规则
-  → export/       — JSON + Excel 7 sheets
+  → validation/   — 7类本地规则 + 5条跨源规则 + 风险分级
+  → export/       — JSON + Excel 7 sheets + MinIO presigned URL
+  → comparison/   — 版本差异比较（VersionDiffer）
+  → retrieval/    — 历史案例检索 (FAISS) + 物料相似匹配 (EmbeddingMaterialMatcher)
   → webapp.py     — Web演示壳 + 人工修正回灌
 ```
 
@@ -75,18 +78,20 @@
 src/huigongyun/
   models.py              # 数据模型 (ProjectDocument/ProjectResult/CabinetRecord/
                          #   MaterialRecord/BomLine/QuoteLine/ValidationIssue/SourceRef)
-  interfaces.py          # 主流程接口 + 二级抽取/检索接口协议
+  interfaces.py          # 主流程接口 + 二级抽取/检索接口协议 (10个Protocol)
   config.py              # 应用配置 dataclass (AppConfig/ParsingConfig/MatchingConfig/ExportConfig)
   pipeline.py            # 默认流水线编排
   bootstrap.py           # 依赖组装
   exceptions.py          # 自定义异常
   cli.py                 # 命令行入口
   webapp.py              # Flask轻量Web演示壳
+  tasks.py               # Celery 异步任务 + 同步回退 (process_project)
   __main__.py            # python -m huigongyun 入口
 
   parsing/
     base.py              # 解析器基类 ScaffoldFormatParser
     registry.py          # 解析器注册表（按后缀路由）
+    multi_source.py      # 多源解析器（目录感知分发 + 元数据合并）
     excel.py             # Excel 解析（正式，多模板自适应：表头检测/元数据提取/噪声过滤）
     word.py              # Word 解析（段落/表格抽取）
     constraint_extractor.py  # Word 约束字段抽取（品牌/防护等级/接地方式/柜型/IP等级）
@@ -99,13 +104,16 @@ src/huigongyun/
     price_retriever.py   # 价格表读取 (LocalPriceTable，孤立工具，待接入 pricing/)
 
   normalization/         # 物料归一 (default.py: 词典映射 + RapidFuzz 模糊回退)
-  generation/            # 逐柜BOM与项目汇总生成
+    dictionaries/        # 外置JSON词典 (materials.json: 物料别名/品牌别名/单位别名/默认品牌/规格正则)
+
+  generation/            # 逐柜BOM与项目汇总生成 (excel_bom.py)
   pricing/               # 报价计算（最小闭环: 单价/小计/汇总/总价/缺价提示）
-  validation/            # 7类校验 (default.py: DefaultProjectValidator)
-  export/                # JSON + Excel 7 sheets 导出 (spreadsheet.py 含 MinIO)
+  validation/            # 校验引擎 (default.py: 7类本地规则 + cross_source.py: 5条跨源规则 + risk.py: 风险分级)
+  export/                # JSON + Excel 7 sheets 导出 (spreadsheet.py 含 MinIO presigned URL)
+  comparison/            # 版本差异比较 (differ.py VersionDiffer + models.py VersionDiff/CabinetDiff/DiffItem)
   storage/               # PostgreSQL 持久化 (postgres_store.py，无 __init__.py，命名空间包)
-  retrieval/             # 历史检索 RAG (faiss_index.py FaissCaseRetriever + embeddings/indexer，可选依赖)
-  indexing/              # 柜体索引
+  retrieval/             # 历史检索 RAG (faiss_index.py FaissCaseRetriever + embeddings/indexer + matcher.py SimilarMaterialMatcher，可选依赖)
+  indexing/              # 柜体索引 (cabinets.py)
   adapters/              # 默认适配器
 
 scripts/
@@ -118,7 +126,7 @@ scripts/
   check_worker_nonroot.sh # 检查 worker 非 root 运行
 
 tests/
-  unit/                  # 单元测试 (112 个用例)
+  unit/                  # 单元测试 (187 个用例，30 个测试文件)
   integration/           # 集成测试
   e2e/                   # 端到端测试
   fixtures/              # 共享测试样例数据
@@ -169,6 +177,7 @@ PdfSourceParser.parse(pdf_path)
 | Web框架 | Flask | 轻量演示壳 |
 | Excel处理 | openpyxl | |
 | 模糊匹配 | RapidFuzz | 物料归一/品牌映射 |
+| 向量检索 | FAISS, sentence-transformers | 历史案例检索 + 物料相似匹配 |
 | PDF文本 | pdfminer.six, pdfplumber | |
 | PDF OCR | pdf2image, pytesseract | 可选依赖 |
 | PDF ML | marker-pdf | 可选，~5GB模型首次下载，CPU可跑 |
@@ -202,9 +211,18 @@ PYTHONPATH=src pytest -p no:launch_testing --ignore=reference
 PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 ```
 
-**当前测试状态 (2026-06-23):** 112 collected, 106 passed, 5 failed, 1 skipped
-- 3 个 marker_adapter 测试失败（需 `pip install marker-pdf`）
+**当前测试状态 (2026-06-30):** 187 collected, 183 passed, 2 failed, 2 skipped
 - 2 个 webapp e2e 测试失败（需要 Flask 测试环境配置）
+- 2 个 retrieval/ocr 慢测试标记为 skip
+
+### 测试组织规范
+
+- `tests/unit/` — 单元测试，按模块组织（如 `tests/unit/parsing/`）
+- `tests/integration/` — 集成测试，按功能域组织（如 `validation`, `indexing`）
+- `tests/e2e/` — 端到端/系统测试
+- `tests/fixtures/` — 共享测试样例数据
+- 文件命名: `test_<功能描述>.py`，函数命名: `test_<期望行为>()`
+- 每函数 1-3 个单元测试，每关键功能 1-5 个集成测试覆盖正常/错误路径
 
 ### 已知环境问题
 
@@ -226,14 +244,13 @@ PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 
 | 文档 | 用途 | 何时阅读 |
 |------|------|---------|
-| `项目核心文档.md` | 需求与验收的单一事实源 (SoR) | 修改任何业务逻辑前 |
-| `工作流确认.md` | 已完成/未完成清单、闭环记录 | 确认当前进度 |
-| `任务拆解.md` | Phase 1 & 2 详细任务与验收 | 理解历史决策 |
-| `设计提案.md` | 完整的技术提案与路线图 | 架构级变更时 |
+| `CLAUDE.md` (本文件) | 项目权威文档：架构/状态/约定/环境 | 每次工作前 |
+| `任务需求.md` | 赛题原文，验收的最终依据 | 理解需求背景时 |
+| `设计提案.md` | 原始技术提案与路线图 | 架构级变更时 |
 | `系统架构设计文档.md` | 生产级架构蓝图 | 基础设施变更时 |
-| `解析与检索接口约定.md` | 解析器/检索器接口协议 | 新增解析器/检索能力 |
-| `TESTS_GUIDELINES.md` | 测试命名与组织规范 | 写新测试时 |
-| `SAMPLE_COMPARISON_REPORT.md` | 样例数据比对报告 | 理解样例数据时 |
+| `任务拆解.md` | Phase 1 & 2 详细任务与验收记录 | 理解历史决策 |
+| `examples/样例数据说明.md` | 4 个样例项目的用途说明 | 选择测试数据时 |
+| `docs/初赛创意提案.md` | 初赛提交材料 | 外部参考 |
 
 ## Agent 体系
 
@@ -251,6 +268,83 @@ PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 
 **原则：** 权限最小化，实现类 agent 只改相关模块，`code_guardian` 在合入前审查。
 
+## 模型使用原则
+
+为控制 token 消耗，重要工作使用 Pro 模型（deepseek-v4-pro），其余全部使用 Flash 模型（deepseek-v4-flash）。Flash 成本远低于 Pro。
+
+### 主对话（Pro）职责
+
+主对话使用 Pro 模型，聚焦高杠杆工作：
+
+| 场景 | 理由 |
+|------|------|
+| 架构设计与方案评审 | 跨模块全局视角，tradeoff 决策 |
+| 核心数据模型变更 (`models.py`, `interfaces.py`) | 影响全项目数据契约，出错成本高 |
+| 复杂业务逻辑（pipeline 编排、归一化链、校验规则） | 多步骤因果推理 |
+| 跨 3+ 模块的横切变更 | 需理解模块间交互和副作用 |
+| 安全敏感代码 | 不可出错 |
+| 复杂 Bug 诊断 | 假设-验证循环，深层原因分析 |
+| 审查 Pro 产出代码 | 审查者能力不应低于作者 |
+| 模糊需求澄清 | 需判断力和用户沟通 |
+
+### Flash 适用场景
+
+以下工作全部派发给 Flash agent 执行：
+
+| 场景 | 理由 |
+|------|------|
+| 文件读取/搜索/探索 | 模式匹配，不需深度推理 |
+| 简单机械编辑（加字段、更新 import、重命名） | 确定性规则 |
+| 为已设计接口写测试 | 测试结构已定，填充用例 |
+| 文档更新（CLAUDE.md, README, 注释） | 描述性工作 |
+| 样板代码/脚手架 | 复制已有模式 |
+| 运行测试并解读结果 | 执行+报告 |
+| 根因明确的简单 Bug 修复 | 已知原因→已知修复 |
+| 导出/格式化代码 | 机械转换 |
+
+### Agent 模型分配
+
+根据各 agent 职责性质，分配默认模型：
+
+| Agent | 模型 | 理由 |
+|-------|------|------|
+| `orchestrator` | **haiku** (Flash) | 任务规划/分派是组织性工作，不写业务代码 |
+| `etl_ingestion` | **haiku** (Flash) | 解析模块已成熟，新增解析器是机械映射 |
+| `algorithm` | **sonnet** (Pro) | 核心引擎：归一化/BOM生成/校验规则，影响全局 |
+| `code_guardian` | **sonnet** (Pro) | 代码审查需深度理解；漏报代价高 |
+| `web_ui` | **haiku** (Flash) | Flask/Django CRUD，展示层逻辑简单 |
+| `release_docs` | **haiku** (Flash) | 文档是描述性、机械性工作 |
+| `research` | **haiku** (Flash) | 只读探索，Flash 足够覆盖 |
+
+注：agent frontmatter 中 `sonnet`/`haiku` 分别映射到用户配置的 `ANTHROPIC_DEFAULT_SONNET_MODEL` (Pro) / `ANTHROPIC_DEFAULT_HAIKU_MODEL` (Flash)。
+
+### 动态升级规则
+
+Flash agent 遇到以下情况时**不应自行决策**，应报告主对话（Pro）处理：
+
+1. **需求模糊** — 需要设计决策或 tradeoff 判断
+2. **跨模块影响** — 改动波及范围超出当前 agent 授权模块
+3. **意外复杂度** — 实际工作量明显超出初始估计
+4. **安全/数据完整性风险** — 涉及数据迁移、破坏性变更
+
+### 分析类任务：两段式工作流
+
+项目分析、文档分析等探索型任务采用 **Flash 收集 + Pro 综合** 模式：
+
+```
+阶段 1: 信息收集 → research agent (Flash)
+  - 定位关键文件、提取相关段落
+  - 搜索代码模式、统计分布
+  - 输出结构化原始数据（文件清单、匹配行、计数）
+
+阶段 2: 综合判断 → 主对话 (Pro)
+  - 接收 Flash 收集的原始数据
+  - 识别模式、发现不一致、推导结论
+  - 输出分析报告或设计建议
+```
+
+**原则：** Flash 负责"找到什么"，Pro 负责"意味着什么"。Flash 不做结论性判断，Pro 不做地毯式搜索。
+
 ## Memory 系统
 
 项目 Memory 文件（`.claude/memory/`）记录跨对话持久化事实：
@@ -264,7 +358,6 @@ PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 
 ## 关键约定（速查）
 
-- 修改代码前先读 `项目核心文档.md` 确认需求
 - 新增功能从最小闭环开始，不同时扩展多个方向
 - 所有关键决定保留证据链（来源文件/页/行号/规则名）
 - 价格优先级: 人工确认 > 价格表 > 样例价格 > 缺价占位

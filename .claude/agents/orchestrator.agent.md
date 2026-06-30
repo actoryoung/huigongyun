@@ -4,6 +4,7 @@ description: 统筹/排期/分工/风险管理与下游 agent 调度（统筹指
 argument-hint: "当前进度 + 目标 + 约束 + 希望推进的 Phase"
 tools: [read, search, todo, agent]
 user-invocable: true
+model: haiku
 ---
 Constraints:
 - 不直接写业务代码或跑执行命令。
