@@ -66,7 +66,7 @@ class TestCabinetTypeNormalization:
     @pytest.mark.parametrize("raw,expected", [
         ("进线柜", "进线柜"),
         ("馈线柜", "进线柜"),
-        ("出线柜", "进线柜"),
+        ("出线柜", "出线柜"),
         ("电源进线柜", "进线柜"),
         ("补偿柜", "补偿柜"),
         ("电容器柜", "补偿柜"),
@@ -308,3 +308,62 @@ class TestMergeAndDedup:
 
         cb_lines = [l for l in result.bom_lines if l.material.name == "框架断路器"]
         assert len(cb_lines) == 2, f"Different brand should not merge, got {len(cb_lines)}"
+
+
+class TestPlaceholderResolution:
+    """L7: 占位符处理 (6 用例)。"""
+
+    def test_quantity_by_cabinet_width_with_dimensions(self):
+        """quantity='按柜宽' + dimensions='800x800x2200' → 解析为数值。"""
+        cabinet = _make_cabinet("C01", None, "TN-S", None, dimensions="800x800x2200")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        pe_line = next(l for l in result.bom_lines if l.material.name == "PE排")
+        assert pe_line.material.quantity > 0
+
+    def test_quantity_by_cabinet_width_without_dimensions(self):
+        """quantity='按柜宽' + dimensions 为空 → 标记 pending。"""
+        cabinet = _make_cabinet("C02", None, "TN-S", None, dimensions=None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        pe_line = next(l for l in result.bom_lines if l.material.name == "PE排")
+        assert pe_line.material.quantity == 0.0
+        assert pe_line.material.remarks and "pending" in pe_line.material.remarks.lower()
+
+    def test_quantity_by_circuit_count_with_value(self):
+        """quantity='按回路数' + circuit_count=12 → quantity=12。"""
+        cabinet = _make_cabinet("C03", "出线柜", None, None, circuit_count=12)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        mccb_line = next(l for l in result.bom_lines if l.material.name == "塑壳断路器")
+        assert mccb_line.material.quantity == 12
+
+    def test_quantity_by_circuit_count_without_value(self):
+        """quantity='按回路数' + circuit_count=None → 标记 pending。"""
+        cabinet = _make_cabinet("C04", "出线柜", None, None, circuit_count=None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        mccb_line = next(l for l in result.bom_lines if l.material.name == "塑壳断路器")
+        assert "pending" in (mccb_line.material.remarks or "").lower()
+
+    def test_spec_by_rated_current_with_value(self):
+        """spec='按额定电流' + rated_current='630A' → 替换 spec。"""
+        cabinet = _make_cabinet("C05", "进线柜", None, None, rated_current="630A")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        cb_line = next(l for l in result.bom_lines if l.material.name == "框架断路器")
+        assert "pending" not in (cb_line.material.remarks or "").lower()
+
+    def test_spec_by_rated_current_without_value(self):
+        """spec='按额定电流' + rated_current=None → 标记 pending_spec。"""
+        cabinet = _make_cabinet("C06", "进线柜", None, None, rated_current=None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        cb_line = next(l for l in result.bom_lines if l.material.name == "框架断路器")
+        assert "pending" in (cb_line.material.remarks or "").lower()

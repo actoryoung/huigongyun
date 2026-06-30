@@ -91,7 +91,8 @@ _FALLBACK_RULES: dict[str, Any] = {
     },
     "normalization_aliases": {
         "cabinet_type": {
-            "进线柜": ["进线柜", "馈线柜", "出线柜", "电源进线柜"],
+            "进线柜": ["进线柜", "馈线柜", "电源进线柜"],
+            "出线柜": ["出线柜"],
             "母联柜": ["母联柜", "联络柜"],
             "补偿柜": ["补偿柜", "电容器柜", "无功补偿柜", "SVG柜"],
             "ATS柜": ["ATS柜", "双电源柜", "互投柜"],
@@ -253,17 +254,24 @@ class AuxMaterialInjector:
     def _materials_to_bom_lines(
         self, materials: list[dict[str, Any]], cabinet: CabinetRecord, rule_label: str
     ) -> list[BomLine]:
-        """将规则物料字典列表转换为 BomLine 列表。"""
+        """将规则物料字典列表转换为 BomLine 列表，解析占位符。"""
         lines: list[BomLine] = []
         for mat in materials:
+            spec = self._resolve_spec(mat.get("spec"), cabinet)
+            quantity, pending_qty = self._resolve_quantity(mat.get("quantity"), cabinet)
+
+            remarks_parts = [rule_label]
+            if pending_qty:
+                remarks_parts.append("pending_quantity")
+
             material = MaterialRecord(
                 name=mat["name"],
-                spec=mat.get("spec"),
+                spec=spec,
                 unit=mat.get("unit"),
-                quantity=mat.get("quantity", 1) if isinstance(mat.get("quantity"), (int, float)) else 0.0,
+                quantity=quantity,
                 source=SourceRef(file_name="bom_rules", file_type="rule", excerpt=rule_label),
-                confidence=0.7,
-                remarks=rule_label,
+                confidence=0.7 if not pending_qty else 0.4,
+                remarks="; ".join(remarks_parts),
             )
             lines.append(BomLine(
                 cabinet_no=cabinet.cabinet_no,
@@ -271,3 +279,55 @@ class AuxMaterialInjector:
                 derived_from="规则推算",
             ))
         return lines
+
+    # ── 占位符解析 ─────────────────────────────────────────────────
+
+    _PLACEHOLDER_SPECS = {"按额定电流", "按回路配置", "按功率", "按补偿容量"}
+
+    @staticmethod
+    def _resolve_spec(spec: str | None, cabinet: CabinetRecord) -> str | None:
+        """解析 spec 占位符：按额定电流 → 从 cabinet.rated_current 推断。"""
+        if spec is None or spec not in AuxMaterialInjector._PLACEHOLDER_SPECS:
+            return spec
+        if spec == "按额定电流" and cabinet.rated_current:
+            return f"~{cabinet.rated_current}"
+        return spec  # 保留占位符，待人工确认
+
+    _NON_NUMERIC_QUANTITY = {"按柜宽", "按回路数", "按额定电流", "按补偿容量", "按功率"}
+
+    @staticmethod
+    def _resolve_quantity(quantity: Any, cabinet: CabinetRecord) -> tuple[float, bool]:
+        """解析 quantity 占位符，返回 (数值, 是否pending)。"""
+        if isinstance(quantity, (int, float)):
+            return float(quantity), False
+        if isinstance(quantity, str) and quantity in AuxMaterialInjector._NON_NUMERIC_QUANTITY:
+            if quantity == "按柜宽":
+                width = AuxMaterialInjector._parse_dimension_width(cabinet.dimensions)
+                if width is not None:
+                    return width / 1000.0, False  # mm → m
+                return 0.0, True
+            if quantity == "按回路数":
+                if cabinet.circuit_count is not None and cabinet.circuit_count > 0:
+                    return float(cabinet.circuit_count), False
+                return 0.0, True
+            if quantity == "按额定电流":
+                if cabinet.rated_current:
+                    return 1.0, False
+                return 0.0, True
+            if quantity in ("按补偿容量", "按功率"):
+                return 0.0, True  # 需要额外输入，标记 pending
+            return 0.0, True
+        return float(quantity) if quantity else 0.0, False
+
+    @staticmethod
+    def _parse_dimension_width(dimensions: str | None) -> float | None:
+        """从 '宽x深x高' 字符串解析宽度 (mm)，如 '800x800x2200' → 800.0。"""
+        if not dimensions:
+            return None
+        parts = str(dimensions).replace(" ", "").lower().split("x")
+        if len(parts) >= 1:
+            try:
+                return float(parts[0])
+            except ValueError:
+                pass
+        return None
