@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ..interfaces import BomGenerator, CabinetExtractor, Exporter, MaterialNormalizer, ProjectParser, QuoteGenerator, Validator
 from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, ValidationIssue
+from ..parsing.multi_source import MultiSourceParser
 from ..parsing.registry import SourceParserRegistry, build_default_source_registry
 from ..validation.default import DefaultProjectValidator
 from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
@@ -26,23 +27,31 @@ class DefaultProjectParser(ProjectParser):
     I/O：
       - 输入：文件系统路径 `input_path`（文件或目录）
       - 输出：描述已发现文件与元数据的 `ProjectDocument`
+      - 目录输入时使用 `MultiSourceParser` 进行多文件分发与合并
     """
 
     def __init__(self, registry: SourceParserRegistry | None = None) -> None:
         self.registry = registry or build_default_source_registry()
+        self._multi_source = MultiSourceParser(self.registry)
 
     def parse(self, input_path: str) -> ProjectDocument:
         path = Path(input_path)
-        if path.is_file() or path.is_dir():
+        if path.is_dir():
+            return self._multi_source.parse(str(path))
+        if path.is_file():
             return self.registry.parse(str(path))
         return ProjectDocument(project_name=path.stem, files=[str(path)])
 
 
 class DefaultCabinetExtractor(CabinetExtractor):
-    """提取机柜候选项；对于电子表格委托给 Excel 提取器。"""
+    """提取机柜候选项；对于含 sheets 的文档委托给 Excel 提取器。
+
+    支持 Excel 单文件与多源合并输入（multi_source 目录中包含 xlsx 时
+    metadata 中同样会有 "sheets"）。
+    """
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
-        if document.metadata.get("input_kind") == "excel":
+        if document.metadata.get("sheets"):
             return ExcelCabinetAndBomExtractor().extract(document)
 
         result = ProjectResult(project=document)

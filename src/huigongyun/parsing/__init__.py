@@ -8,6 +8,7 @@ from .base import ScaffoldFormatParser
 from .dwg import DwgSourceParser
 from .excel import ExcelProjectParser
 from .image import ImageSourceParser
+from .multi_source import MultiSourceParser
 from .pdf import PdfSourceParser
 from .registry import (
 	ExcelSourceParser,
@@ -24,6 +25,7 @@ __all__ = [
 	"ExcelProjectParser",
 	"ExcelSourceParser",
 	"ImageSourceParser",
+	"MultiSourceParser",
 	"PdfSourceParser",
 	"ScaffoldSourceParser",
 	"SourceParser",

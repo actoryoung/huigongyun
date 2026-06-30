@@ -9,10 +9,11 @@ from __future__ import annotations
 from collections import Counter
 
 from ..models import BomLine, ProjectResult, ValidationIssue
+from .cross_source import CrossSourceValidatorMixin
 from .risk import RiskClassifier
 
 
-class DefaultProjectValidator:
+class DefaultProjectValidator(CrossSourceValidatorMixin):
     """应用基础的校验规则以发现常见问题。"""
 
     def validate(self, result: ProjectResult) -> ProjectResult:
@@ -24,6 +25,7 @@ class DefaultProjectValidator:
         issues.extend(self._validate_long_lead_time(result))
         issues.extend(self._validate_quote_prices(result))
         issues.extend(self._validate_pending_marks(result))
+        issues.extend(self._validate_cross_source(result))
 
         # 风险分级：默认映射 + 上下文升级
         classifier = RiskClassifier()

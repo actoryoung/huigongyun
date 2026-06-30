@@ -47,12 +47,19 @@ _DEFAULT_RISK_MAP: dict[str, RiskLevel] = {
     "duplicate_bom_line": RiskLevel.MEDIUM,
     "invalid_material_quantity": RiskLevel.MEDIUM,
     "missing_cabinet_no": RiskLevel.MEDIUM,
+    # 跨源融合校验
+    "cross_source_cabinet_mismatch": RiskLevel.MEDIUM,
+    "cross_source_cabinet_type_mismatch": RiskLevel.MEDIUM,
+    "cross_source_grounding_mismatch": RiskLevel.MEDIUM,
+    "cross_source_ip_mismatch": RiskLevel.MEDIUM,
+    "cross_source_protection_mismatch": RiskLevel.MEDIUM,
 
     # Low — 提示性信息，通常不需要立即处理
     "long_lead_time": RiskLevel.LOW,
     "missing_price": RiskLevel.LOW,
     "pending_material_spec": RiskLevel.LOW,
     "pending_material_brand": RiskLevel.LOW,
+    "cross_source_brand_non_compliance": RiskLevel.LOW,
 
     # Info — 纯信息性标记
     "pending_marker": RiskLevel.INFO,
