@@ -4,7 +4,7 @@
 
 低压电气成套智能报价清单生成系统 MVP。从非结构化资料（DWG/PDF/Excel/Word/图片）自动生成逐柜 BOM、项目汇总 BOM、报价清单与校验报告。目标是输出可追溯、支持人工修正、可导出的结构化结果。
 
-## 当前状态 (2026-06-23)
+## 当前状态 (2026-06-30)
 
 **Phase 1 & 2 已完成。Phase 3a/3b/3c 已交付。Phase 3d 已实现（可选依赖）。**
 
@@ -30,6 +30,7 @@
 | 版本差异 Demo | ✅ | `comparison/` VersionDiffer，项目D 12 单元测试 + 3 集成测试 |
 | 风险分级体系 | ✅ | `validation/risk.py` RiskClassifier + 4 升级规则 + RiskDashboard |
 | 历史检索 RAG | ✅ | `retrieval/` FAISS + sentence-transformers，Pipeline 可选集成 |
+| HH Django 前端接线 | ✅ | `src/HH/` 外部项目 (String-Wan/HH)，analyze_file 已接入 huigongyun 流水线，PR 工作流 |
 
 ### 未完成 / 暂缓
 
@@ -75,7 +76,7 @@ src/huigongyun/
   models.py              # 数据模型 (ProjectDocument/ProjectResult/CabinetRecord/
                          #   MaterialRecord/BomLine/QuoteLine/ValidationIssue/SourceRef)
   interfaces.py          # 主流程接口 + 二级抽取/检索接口协议
-  config.py              # 应用配置 dataclass (HuigongyunConfig)
+  config.py              # 应用配置 dataclass (AppConfig/ParsingConfig/MatchingConfig/ExportConfig)
   pipeline.py            # 默认流水线编排
   bootstrap.py           # 依赖组装
   exceptions.py          # 自定义异常
@@ -95,21 +96,26 @@ src/huigongyun/
     marker_adapter.py    # Marker 本地 PDF→Markdown 适配器（免费CPU，~89%表格精度）
     ocr_adapter.py       # Tesseract OCR 适配器（pdf2image + pytesseract）
     image.py             # 图片解析骨架（待OCR接入）
-    price_retriever.py   # 价格表读取
+    price_retriever.py   # 价格表读取 (LocalPriceTable，孤立工具，待接入 pricing/)
 
   normalization/         # 物料归一 (default.py: 词典映射 + RapidFuzz 模糊回退)
   generation/            # 逐柜BOM与项目汇总生成
   pricing/               # 报价计算（最小闭环: 单价/小计/汇总/总价/缺价提示）
   validation/            # 7类校验 (default.py: DefaultProjectValidator)
   export/                # JSON + Excel 7 sheets 导出 (spreadsheet.py 含 MinIO)
-  storage/               # PostgreSQL 持久化 (postgres_store.py)
-  retrieval/             # 历史检索接口（预留，未实现）
+  storage/               # PostgreSQL 持久化 (postgres_store.py，无 __init__.py，命名空间包)
+  retrieval/             # 历史检索 RAG (faiss_index.py FaissCaseRetriever + embeddings/indexer，可选依赖)
   indexing/              # 柜体索引
   adapters/              # 默认适配器
 
 scripts/
-  demo.py                # 一键演示
+  demo.py                # 一键演示（默认项目B，支持 --project C / --web / --input）
+  demo_retrieval.py      # RAG 历史检索演示（索引样例 + 相似搜索）
+  demo_version_diff.py   # 项目D 两版本物料清单差异对比演示
   validate_dwg.py        # DWG图纸识别质量评估
+  ocr_poc.py             # Tesseract OCR 单文件 PoC
+  run_integration_pg.sh  # 启动 Postgres 集成测试环境
+  check_worker_nonroot.sh # 检查 worker 非 root 运行
 
 tests/
   unit/                  # 单元测试 (112 个用例)
