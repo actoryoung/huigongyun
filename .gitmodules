@@ -1,0 +1,3 @@
+[submodule "src/HH"]
+	path = src/HH
+	url = https://github.com/String-Wan/HH.git
