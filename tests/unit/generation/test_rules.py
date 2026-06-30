@@ -367,3 +367,105 @@ class TestPlaceholderResolution:
 
         cb_line = next(l for l in result.bom_lines if l.material.name == "框架断路器")
         assert "pending" in (cb_line.material.remarks or "").lower()
+
+
+class TestSourceMarking:
+    """L8: 来源标记 (3 用例)。"""
+
+    def test_derived_from_is_rule_estimate(self):
+        """注入的 BomLine 标记 derived_from='规则推算'。"""
+        cabinet = _make_cabinet("D01", "进线柜", "TN-S", None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        for line in result.bom_lines:
+            assert line.derived_from == "规则推算"
+
+    def test_material_source_is_bom_rules(self):
+        """MaterialRecord.source.file_name = 'bom_rules'。"""
+        cabinet = _make_cabinet("D02", "进线柜", None, None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        for line in result.bom_lines:
+            assert line.material.source is not None
+            assert line.material.source.file_name == "bom_rules"
+
+    def test_remark_contains_rule_label(self):
+        """remark 包含具体规则名。"""
+        cabinet = _make_cabinet("D03", "母联柜", "TN-S", None)
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        remarks_all = " ".join(l.material.remarks or "" for l in result.bom_lines)
+        assert "柜型:母联柜" in remarks_all
+        assert "接地:TN-S" in remarks_all
+
+
+class TestEdgeCasesAndDegradation:
+    """L9: 边缘降级 (6 用例)。"""
+
+    def test_empty_cabinets_no_crash(self):
+        """cabinets 为空列表不崩溃。"""
+        result = _make_result([])
+        result = AuxMaterialInjector().inject(result)
+        assert len(result.bom_lines) == 0
+
+    def test_unknown_cabinet_type_skips_layer(self):
+        """柜型不在 JSON 中，跳过柜型层，不影响其他层。"""
+        cabinet = _make_cabinet("E01", "太阳能柜", "TN-S", "电缆上进")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [l.material.name for l in result.bom_lines]
+        assert "N排" in names, "Grounding layer should still work"
+        assert "电缆夹具" in names, "Inbound layer should still work"
+
+    def test_unknown_grounding_skips_layer(self):
+        """接地方式不在 JSON 中，log info，不影响其他层。"""
+        cabinet = _make_cabinet("E02", "进线柜", "TN-XYZ", "电缆上进")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        names = [l.material.name for l in result.bom_lines]
+        assert "框架断路器" in names, "Cabinet type layer should still work"
+
+    def test_single_cabinet_no_matches_injects_nothing(self):
+        """单个柜体三层无匹配 → 不注入任何物料。"""
+        cabinet = _make_cabinet("E03", "未知XX", "未知YY", "未知ZZ")
+        result = _make_result([cabinet])
+        result = AuxMaterialInjector().inject(result)
+
+        assert len(result.bom_lines) == 0
+
+    def test_multi_cabinet_batch(self):
+        """多柜体批量处理（3 柜体）每个独立计算。"""
+        cabinets = [
+            _make_cabinet("E04", "进线柜", "TN-S", "电缆上进"),
+            _make_cabinet("E05", "母联柜", None, None),
+            _make_cabinet("E06", None, "TN-C", "电缆下进"),
+        ]
+        result = _make_result(cabinets)
+        result = AuxMaterialInjector().inject(result)
+
+        # 每个柜体应至少有物料
+        cabinet_nos = set(l.cabinet_no for l in result.bom_lines)
+        assert "E04" in cabinet_nos
+        assert "E05" in cabinet_nos
+        assert "E06" in cabinet_nos
+
+    def test_existing_derived_from_not_overwritten(self):
+        """已有 derived_from 非空时保留原值（保留人工修正）。"""
+        cabinet = _make_cabinet("E07", "进线柜", None, None)
+        result = _make_result([cabinet])
+
+        manual = MaterialRecord(name="框架断路器", spec="NSX400N", unit="台")
+        manual.quantity = 1
+        result.bom_lines.append(BomLine(
+            cabinet_no="E07", material=manual, derived_from="人工修正"
+        ))
+
+        result = AuxMaterialInjector().inject(result)
+
+        manual_lines = [l for l in result.bom_lines if l.derived_from == "人工修正"]
+        assert len(manual_lines) == 1, "Manual edit should be preserved"
