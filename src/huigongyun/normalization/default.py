@@ -328,10 +328,13 @@ class DefaultMaterialNormalizer:
                 return None, "pending"
             return canonical, "explicit"
 
-        # Step 2: RapidFuzz 模糊回退
+        # Step 2: RapidFuzz 模糊回退（大小写不敏感）
         if _HAS_RAPIDFUZZ:
             choices = list(self.BRAND_ALIASES.keys())
-            match = process.extractOne(value, choices, scorer=fuzz.token_sort_ratio)
+            # 大小写不敏感匹配：统一转小写后做 fuzzy 比较
+            value_lower = value.lower()
+            choices_lower = [c.lower() for c in choices]
+            match = process.extractOne(value_lower, choices_lower, scorer=fuzz.token_sort_ratio)
             if match:
                 try:
                     key, score = match[0], match[1]
@@ -342,7 +345,9 @@ class DefaultMaterialNormalizer:
                 except Exception:
                     score = 0
                 if score >= 80:
-                    canonical = self.BRAND_ALIASES.get(key, value)
+                    # key 是 lower 版本，映射回原始 choices 的 key
+                    original_key = choices[choices_lower.index(key)] if key in choices_lower else key
+                    canonical = self.BRAND_ALIASES.get(original_key, value)
                     if canonical in _TRIGGER_BRANDS_FOR_INFERENCE:
                         inferred = self._infer_brand_from_category(normalized_name)
                         if inferred and inferred not in _TRIGGER_BRANDS_FOR_INFERENCE:
