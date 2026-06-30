@@ -1,0 +1,148 @@
+{
+  "_description": "低压成套柜型/接地/进出线 BOM 辅材规则表，三层叠加注入",
+
+  "cabinet_type_templates": {
+    "进线柜": {
+      "materials": [
+        {"name": "框架断路器", "spec": "按额定电流", "unit": "台", "quantity": "按额定电流"},
+        {"name": "测量电流互感器", "spec": "按额定电流", "unit": "只", "quantity": 4},
+        {"name": "多功能表", "spec": null, "unit": "只", "quantity": 1},
+        {"name": "浪涌保护器", "spec": null, "unit": "套", "quantity": 1}
+      ],
+      "condition_fields": ["rated_current"]
+    },
+    "母联柜": {
+      "materials": [
+        {"name": "框架断路器", "spec": "按额定电流", "unit": "台", "quantity": "按额定电流"},
+        {"name": "测量电流互感器", "spec": "按额定电流", "unit": "只", "quantity": 4},
+        {"name": "多功能表", "spec": null, "unit": "只", "quantity": 1}
+      ],
+      "condition_fields": ["rated_current"]
+    },
+    "出线柜": {
+      "materials": [
+        {"name": "塑壳断路器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+        {"name": "接触器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+        {"name": "热继电器", "spec": "按回路配置", "unit": "只", "quantity": "按回路数"}
+      ],
+      "condition_fields": ["rated_current", "circuit_count"]
+    },
+    "变频柜": {
+      "materials": [
+        {"name": "变频器", "spec": "按功率", "unit": "台", "quantity": 1},
+        {"name": "输入电抗器", "spec": "按功率", "unit": "台", "quantity": 1},
+        {"name": "输出滤波器", "spec": "按功率", "unit": "台", "quantity": 1},
+        {"name": "塑壳断路器", "spec": "按功率", "unit": "台", "quantity": 1}
+      ],
+      "condition_fields": ["rated_current"]
+    },
+    "补偿柜": {
+      "materials": [
+        {"name": "隔离开关", "spec": "按补偿容量", "unit": "台", "quantity": 1},
+        {"name": "电容器", "spec": "按补偿容量", "unit": "台", "quantity": "按补偿容量"},
+        {"name": "电抗器", "spec": "按补偿容量", "unit": "台", "quantity": "按补偿容量"},
+        {"name": "晶闸管投切开关", "spec": "按补偿容量", "unit": "台", "quantity": "按补偿容量"},
+        {"name": "温湿度控制器", "spec": null, "unit": "只", "quantity": 1}
+      ],
+      "condition_fields": []
+    },
+    "ATS柜": {
+      "materials": [
+        {"name": "双电源开关", "spec": "按额定电流", "unit": "台", "quantity": 1},
+        {"name": "控制器", "spec": null, "unit": "台", "quantity": 1},
+        {"name": "塑壳断路器", "spec": "按额定电流", "unit": "台", "quantity": 2}
+      ],
+      "condition_fields": ["rated_current"]
+    },
+    "MCC柜": {
+      "materials": [
+        {"name": "塑壳断路器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+        {"name": "接触器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+        {"name": "热继电器", "spec": "按回路配置", "unit": "只", "quantity": "按回路数"},
+        {"name": "控制变压器", "spec": null, "unit": "台", "quantity": 1}
+      ],
+      "condition_fields": ["rated_current", "circuit_count"]
+    },
+    "配电箱": {
+      "materials": [
+        {"name": "微型断路器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+        {"name": "漏电保护器", "spec": "按回路配置", "unit": "只", "quantity": "按回路数"},
+        {"name": "铜排", "spec": null, "unit": "米", "quantity": "按柜宽"}
+      ],
+      "condition_fields": ["circuit_count"]
+    }
+  },
+
+  "grounding_materials": {
+    "TN-S": [
+      {"name": "N排", "spec": null, "unit": "米", "quantity": "按柜宽"},
+      {"name": "PE排", "spec": null, "unit": "米", "quantity": "按柜宽"}
+    ],
+    "TN-C": [
+      {"name": "PEN排", "spec": null, "unit": "米", "quantity": "按柜宽"}
+    ],
+    "TN-C-S": [
+      {"name": "PEN排", "spec": null, "unit": "米", "quantity": "按柜宽"},
+      {"name": "N排", "spec": null, "unit": "米", "quantity": "按柜宽"},
+      {"name": "PE排", "spec": null, "unit": "米", "quantity": "按柜宽"}
+    ],
+    "TT": [
+      {"name": "PE排", "spec": null, "unit": "米", "quantity": "按柜宽"},
+      {"name": "漏电保护器", "spec": "按额定电流", "unit": "只", "quantity": 1}
+    ],
+    "IT": [
+      {"name": "PE排", "spec": null, "unit": "米", "quantity": "按柜宽"},
+      {"name": "绝缘监测装置", "spec": null, "unit": "台", "quantity": 1}
+    ]
+  },
+
+  "inbound_outbound_materials": {
+    "电缆上进": [
+      {"name": "电缆夹具", "spec": null, "unit": "套", "quantity": "按回路数"},
+      {"name": "进线密封圈", "spec": null, "unit": "套", "quantity": "按回路数"}
+    ],
+    "电缆下进": [
+      {"name": "电缆夹具", "spec": null, "unit": "套", "quantity": "按回路数"},
+      {"name": "进线密封圈", "spec": null, "unit": "套", "quantity": "按回路数"}
+    ],
+    "母线槽进线": [
+      {"name": "过渡母排", "spec": null, "unit": "套", "quantity": 1},
+      {"name": "母线连接件", "spec": null, "unit": "套", "quantity": 1},
+      {"name": "接头盖板", "spec": null, "unit": "套", "quantity": 1}
+    ],
+    "母线槽出线": [
+      {"name": "过渡母排", "spec": null, "unit": "套", "quantity": 1},
+      {"name": "母线连接件", "spec": null, "unit": "套", "quantity": 1}
+    ],
+    "背靠背拼柜": [
+      {"name": "拼柜连接母排", "spec": null, "unit": "套", "quantity": 1},
+      {"name": "拼柜螺栓", "spec": null, "unit": "套", "quantity": 1}
+    ]
+  },
+
+  "normalization_aliases": {
+    "cabinet_type": {
+      "进线柜": ["进线柜", "馈线柜", "出线柜", "电源进线柜", "主进线柜"],
+      "母联柜": ["母联柜", "联络柜", "母线联络柜"],
+      "补偿柜": ["补偿柜", "电容器柜", "无功补偿柜", "SVG柜"],
+      "变频柜": ["变频柜", "变频器柜", "VFD柜"],
+      "ATS柜": ["ATS柜", "双电源柜", "互投柜", "双电源切换柜"],
+      "MCC柜": ["MCC柜", "马达控制柜", "电动机控制柜"],
+      "配电箱": ["配电箱", "照明配电箱", "动力配电箱", "配电盒"]
+    },
+    "grounding": {
+      "TN-S": ["TN-S", "TN-S 系统", "TNS", "tn-s", "tns"],
+      "TN-C": ["TN-C", "TN-C 系统", "TNC", "tn-c", "tnc"],
+      "TN-C-S": ["TN-C-S", "TN-C-S 系统", "TNCS", "tn-c-s", "tncs"],
+      "TT": ["TT", "TT 系统", "tt"],
+      "IT": ["IT", "IT 系统", "it"]
+    },
+    "inbound_outbound": {
+      "电缆上进": ["电缆上进", "上进", "上进上出", "上进线", "电缆顶部进线"],
+      "电缆下进": ["电缆下进", "下进", "下进下出", "下进线", "电缆底部进线"],
+      "母线槽进线": ["母线槽进线", "母线进线", "母线接入", "母线槽接入", "母线上进"],
+      "母线槽出线": ["母线槽出线", "母线出线", "母线下出"],
+      "背靠背拼柜": ["背靠背拼柜", "拼柜", "背靠背", "并柜"]
+    }
+  }
+}
