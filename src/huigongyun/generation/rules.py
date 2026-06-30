@@ -150,6 +150,41 @@ class AuxMaterialInjector:
             "normalization_aliases": data.get("normalization_aliases", {}),
         }
 
+    # ── 归一化 ─────────────────────────────────────────────────────
+
+    def _normalize_cabinet_type(self, type_str: str | None) -> str | None:
+        """柜型别名归一化：馈线柜/出线柜→进线柜，电容器柜→补偿柜 等。"""
+        if not type_str:
+            return None
+        aliases = self._rules.get("normalization_aliases", {}).get("cabinet_type", {})
+        type_clean = type_str.strip()
+        for canonical, variants in aliases.items():
+            if type_clean in variants:
+                return canonical
+        return None
+
+    def _normalize_grounding(self, mode_str: str | None) -> str | None:
+        """接地方式归一化：TNS→TN-S, tn-s→TN-S 等。"""
+        if not mode_str:
+            return None
+        aliases = self._rules.get("normalization_aliases", {}).get("grounding", {})
+        mode_clean = mode_str.strip()
+        for canonical, variants in aliases.items():
+            if mode_clean in variants:
+                return canonical
+        return None
+
+    def _normalize_inbound(self, mode_str: str | None) -> str | None:
+        """进出线方式归一化：上进→电缆上进，母线接入→母线槽进线 等。"""
+        if not mode_str:
+            return None
+        aliases = self._rules.get("normalization_aliases", {}).get("inbound_outbound", {})
+        mode_clean = mode_str.strip()
+        for canonical, variants in aliases.items():
+            if mode_clean in variants:
+                return canonical
+        return None
+
     # ── 公共入口 ───────────────────────────────────────────────────
 
     def inject(self, result: ProjectResult) -> ProjectResult:

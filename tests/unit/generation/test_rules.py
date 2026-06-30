@@ -58,3 +58,92 @@ class TestRulesLoading:
         assert "cabinet_type_templates" in rules
         assert len(rules["grounding_materials"]) == 0
         assert len(rules["inbound_outbound_materials"]) == 0
+
+
+class TestCabinetTypeNormalization:
+    """L2: 柜型归一化 (5 用例)。"""
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("进线柜", "进线柜"),
+        ("馈线柜", "进线柜"),
+        ("出线柜", "进线柜"),
+        ("电源进线柜", "进线柜"),
+        ("补偿柜", "补偿柜"),
+        ("电容器柜", "补偿柜"),
+        ("SVG柜", "补偿柜"),
+        ("ATS柜", "ATS柜"),
+        ("双电源柜", "ATS柜"),
+        ("互投柜", "ATS柜"),
+        ("母联柜", "母联柜"),
+        ("联络柜", "母联柜"),
+        ("变频柜", "变频柜"),
+        ("MCC柜", "MCC柜"),
+        ("配电箱", "配电箱"),
+    ])
+    def test_normalize_known_types(self, raw, expected):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_cabinet_type(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, "", "未知柜型", "xyz"])
+    def test_normalize_unknown_returns_none(self, raw):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_cabinet_type(raw) is None
+
+
+class TestGroundingNormalization:
+    """L3: 接地方式归一化 (5 用例)。"""
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("TN-S", "TN-S"),
+        ("TN-S 系统", "TN-S"),
+        ("TNS", "TN-S"),
+        ("tn-s", "TN-S"),
+        ("TN-C", "TN-C"),
+        ("TN-C 系统", "TN-C"),
+        ("tnc", "TN-C"),
+        ("TN-C-S", "TN-C-S"),
+        ("tncs", "TN-C-S"),
+        ("TT", "TT"),
+        ("tt", "TT"),
+        ("IT", "IT"),
+        ("IT 系统", "IT"),
+    ])
+    def test_normalize_known_modes(self, raw, expected):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_grounding(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, "", "UNKNOWN", "XYZ"])
+    def test_normalize_unknown_returns_none(self, raw):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_grounding(raw) is None
+
+
+class TestInboundOutboundNormalization:
+    """L4: 进出线方式归一化 (5 用例)。"""
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("电缆上进", "电缆上进"),
+        ("上进", "电缆上进"),
+        ("上进上出", "电缆上进"),
+        ("上进线", "电缆上进"),
+        ("电缆下进", "电缆下进"),
+        ("下进", "电缆下进"),
+        ("下进下出", "电缆下进"),
+        ("母线槽进线", "母线槽进线"),
+        ("母线进线", "母线槽进线"),
+        ("母线接入", "母线槽进线"),
+        ("母线槽接入", "母线槽进线"),
+        ("母线槽出线", "母线槽出线"),
+        ("背靠背拼柜", "背靠背拼柜"),
+        ("拼柜", "背靠背拼柜"),
+        ("背靠背", "背靠背拼柜"),
+        ("并柜", "背靠背拼柜"),
+    ])
+    def test_normalize_known_modes(self, raw, expected):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_inbound(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, "", "未知方式", "xyz"])
+    def test_normalize_unknown_returns_none(self, raw):
+        injector = AuxMaterialInjector()
+        assert injector._normalize_inbound(raw) is None
