@@ -17,11 +17,13 @@ from ..interfaces import CaseHit, HistoricalCaseRetriever, SimilarMaterialMatche
 from .embeddings import EmbeddingProvider, SentenceTransformerProvider
 from .faiss_index import FaissCaseRetriever
 from .indexer import CaseIndexer
+from .matcher import EmbeddingMaterialMatcher
 from .models import IndexedCase
 
 __all__ = [
     "CaseHit",
     "CaseIndexer",
+    "EmbeddingMaterialMatcher",
     "EmbeddingProvider",
     "FaissCaseRetriever",
     "HistoricalCaseRetriever",

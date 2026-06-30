@@ -23,6 +23,7 @@ from .interfaces import (
     PipelineContext,
     ProjectParser,
     QuoteGenerator,
+    SimilarMaterialMatcher,
     Validator,
 )
 from .models import ProjectResult
@@ -38,6 +39,7 @@ class Pipeline:
     validator: Validator
     exporter: Exporter
     retriever: HistoricalCaseRetriever | None = None
+    matcher: SimilarMaterialMatcher | None = None
 
     def run(self, context: PipelineContext) -> ProjectResult:
         """顺序执行流水线各阶段。

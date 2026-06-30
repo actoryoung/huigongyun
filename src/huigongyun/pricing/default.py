@@ -51,7 +51,8 @@ class DefaultQuoteGenerator:
 
         for bom_line in result.bom_lines:
             material = bom_line.material
-            entry = self._resolve_price(material.name, material.spec, material.brand or material.manufacturer, price_table)
+            effective_brand = material.normalized_brand or material.brand or material.manufacturer
+            entry = self._resolve_price(material.name, material.spec, effective_brand, price_table)
 
             unit_price = entry.unit_price if entry else None
             subtotal = round(unit_price * material.quantity, 2) if unit_price is not None else None

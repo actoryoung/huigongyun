@@ -64,6 +64,8 @@ class MaterialRecord:
     manufacturer: str | None = None
     normalized_name: str | None = None
     normalized_spec: str | None = None
+    normalized_brand: str | None = None
+    brand_source: str = "pending"  # "explicit" | "inferred" | "pending"
     source: SourceRef | None = None
     confidence: float = 0.0
     long_lead_time: bool = False

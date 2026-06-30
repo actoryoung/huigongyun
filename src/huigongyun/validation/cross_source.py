@@ -189,7 +189,12 @@ class CrossSourceValidatorMixin:
     def _validate_brand_compliance(
         self, result: ProjectResult, constraint_rules: dict[str, Any]
     ) -> list[ValidationIssue]:
-        """检查 BOM 中使用的品牌是否符合 Word 约束中的推荐品牌列表。"""
+        """检查 BOM 中使用的品牌是否符合 Word 约束中的推荐品牌列表。
+
+        - 读取 ``normalized_brand``（兜底了类别推断的品牌）
+        - ``brand_source="inferred"`` 的辅助器件降为 info
+        - "国产"/"甲供" 等占位符如无法推断则跳过（已在归一化层处理）
+        """
         issues: list[ValidationIssue] = []
 
         preferred_raw: list[str] = constraint_rules.get("preferred_brands", [])
@@ -197,24 +202,38 @@ class CrossSourceValidatorMixin:
             return issues
         preferred = {_normalize_brand(b) for b in preferred_raw}
 
-        # 统计非推荐品牌
+        # 统计非推荐品牌（按 normalized_brand 聚合）
         non_preferred: Counter = Counter()
         for bom in result.bom_lines:
-            brand = (bom.material.brand or "").strip()
-            if not brand:
+            effective = (
+                bom.material.normalized_brand
+                or (bom.material.brand or "").strip()
+            )
+            if not effective:
                 continue
-            brand_norm = _normalize_brand(brand)
+            brand_norm = _normalize_brand(effective)
             if brand_norm not in preferred:
-                non_preferred[(brand, brand_norm)] += 1
+                brand_source = getattr(bom.material, "brand_source", "explicit")
+                non_preferred[(effective, brand_norm, brand_source)] += 1
 
-        for (original, _norm), count in non_preferred.items():
+        for (original, _norm, source), count in non_preferred.items():
+            severity = "warning"
+            # 推断品牌 + 非关键器件 → info
+            if source == "inferred":
+                severity = "info"
+
             issues.append(ValidationIssue(
                 issue_type="cross_source_brand_non_compliance",
-                severity="warning",
+                severity=severity,
                 message=f"物料使用了非推荐品牌：{original}（出现 {count} 次），推荐品牌：{', '.join(preferred_raw)}",
                 cabinet_no=None,
                 material_name=original,
-                details={"brand": original, "count": count, "preferred_brands": preferred_raw},
+                details={
+                    "brand": original,
+                    "count": count,
+                    "preferred_brands": preferred_raw,
+                    "brand_source": source,
+                },
             ))
 
         return issues

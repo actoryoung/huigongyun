@@ -121,3 +121,24 @@ class TestCrossSourceValidatorMixin:
         assert len(issues) == 1
         assert "正泰" in issues[0].message
         assert "施耐德" in issues[0].details.get("preferred_brands", [])
+
+    def test_brand_compliance_uses_normalized_brand(self):
+        """读取 normalized_brand 做合规检查（兜底类别推断品牌）。"""
+        from huigongyun.models import ProjectDocument, ProjectResult, BomLine, MaterialRecord
+
+        doc = ProjectDocument(project_name="test", files=[])
+        result = ProjectResult(project=doc)
+        # 模拟归一化后的物料：原始 brand=国产, normalized_brand=正泰（类别推断）
+        mat = MaterialRecord(
+            name="互感器", brand="国产", spec="LMK-0.66", quantity=1,
+            normalized_brand="正泰", brand_source="inferred",
+        )
+        result.bom_lines.append(BomLine(cabinet_no="K1", material=mat, derived_from="test"))
+
+        mixin = CrossSourceValidatorMixin()
+        rules = {"preferred_brands": ["施耐德"]}
+        issues = mixin._validate_brand_compliance(result, rules)
+        assert len(issues) == 1
+        # 推断品牌 → info
+        assert issues[0].severity == "info"
+        assert issues[0].details["brand_source"] == "inferred"

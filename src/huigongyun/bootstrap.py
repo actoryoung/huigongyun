@@ -50,6 +50,15 @@ def build_default_pipeline() -> Pipeline:
     except (ImportError, OSError):
         pass  # 依赖未安装时静默跳过
 
+    # 可选：若 sentence-transformers 可用则注入物料相似度匹配器
+    try:
+        from .retrieval import EmbeddingMaterialMatcher, SentenceTransformerProvider
+
+        matcher_provider = SentenceTransformerProvider()
+        pipeline.matcher = EmbeddingMaterialMatcher(matcher_provider)
+    except (ImportError, OSError):
+        pass  # 依赖未安装时静默跳过
+
     return pipeline
 
 

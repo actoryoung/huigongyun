@@ -125,6 +125,64 @@ def _load_dictionaries() -> tuple[dict[str, str], dict[str, str], dict[str, str]
 _MATERIAL_ALIASES, _BRAND_ALIASES, _UNIT_ALIASES = _load_dictionaries()
 
 
+def _load_category_default_brands() -> dict[str, list[str]]:
+    """从 JSON 词典加载物料类别→国产品牌默认映射。
+
+    返回 {canonical_category: [首选品牌, 备选1, ...]}。
+    JSON 中已定义的覆盖内置回退；未定义的保留回退值。
+    """
+    dict_path = Path(__file__).parent / "dictionaries" / "materials.json"
+
+    # 内置回退
+    fallback_categories: dict[str, list[str]] = {
+        "框架断路器": ["常熟", "正泰", "人民电器"],
+        "塑壳断路器": ["常熟", "正泰", "德力西"],
+        "微型断路器": ["正泰", "德力西", "天正"],
+        "SPD断路器": ["正泰", "天正"],
+        "断路器脱扣单元": ["正泰", "常熟"],
+        "双电源开关": ["正泰", "德力西"],
+        "浪涌保护器": ["正泰", "良信"],
+        "接触器": ["正泰", "德力西", "天正"],
+        "热继电器": ["正泰", "天正"],
+        "熔断器": ["茗熔", "正泰"],
+        "熔断器隔离开关": ["茗熔", "正泰"],
+        "隔离开关": ["正泰", "德力西"],
+        "测量电流互感器": ["正泰", "德力西"],
+        "多功能表": ["正泰", "天正"],
+        "温湿度控制器": ["正泰"],
+        "主母线": ["国产"],
+        "柜体": ["国产"],
+        "SVG": ["正泰"],
+        "电抗器": ["正泰", "德力西"],
+        "电容器": ["正泰", "德力西"],
+        "晶闸管投切开关": ["正泰"],
+        "通讯模块": ["正泰"],
+        "SP元件": ["正泰"],
+        "其他": ["国产"],
+    }
+
+    try:
+        if not dict_path.exists():
+            return fallback_categories
+        with open(dict_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        json_categories = data.get("material_category_default_brands", {})
+        if not isinstance(json_categories, dict):
+            return fallback_categories
+        # JSON 覆盖回退
+        merged = dict(fallback_categories)
+        merged.update(json_categories)
+        return merged
+    except Exception:
+        return fallback_categories
+
+
+_MATERIAL_CATEGORY_DEFAULT_BRANDS = _load_category_default_brands()
+
+# "国产"类占位符——触发类别推断的信号，不是品牌名
+_TRIGGER_BRANDS_FOR_INFERENCE = {"国产", "甲供"}
+
+
 class DefaultMaterialNormalizer:
     """对物料名称、规格、品牌和单位进行轻量归一化。
 
@@ -146,6 +204,10 @@ class DefaultMaterialNormalizer:
     def UNIT_ALIASES(self) -> dict[str, str]:
         return _UNIT_ALIASES
 
+    @property
+    def MATERIAL_CATEGORY_DEFAULT_BRANDS(self) -> dict[str, list[str]]:
+        return _MATERIAL_CATEGORY_DEFAULT_BRANDS
+
     def normalize(self, result: ProjectResult) -> ProjectResult:
         """对传入的 `ProjectResult` 就地归一化物料字段并返回相同对象。
 
@@ -161,15 +223,35 @@ class DefaultMaterialNormalizer:
         return result
 
     def _normalize_material(self, material: MaterialRecord) -> None:
-        """把单个 `MaterialRecord` 内的字段按规则清洗与映射。
+        """对单个 ``MaterialRecord`` 进行清洗与别名映射。
 
-        注意：该函数会更新 `material.normalized_name` 与 `material.normalized_spec`。
+        - ``name`` / ``spec`` / ``unit`` 做基本清理
+        - ``normalized_name`` / ``normalized_spec`` 做别名映射（非破坏性）
+        - ``brand`` 保留原始值；``normalized_brand`` 走完整回退链
+        - ``brand_source`` 标记品牌来源（explicit / inferred / pending）
         """
         material.name = self._normalize_text(material.name)
         material.spec = self._normalize_spec(material.spec)
         material.unit = self._normalize_unit(material.unit)
-        material.brand = self._normalize_brand(material.brand or material.manufacturer)
-        material.manufacturer = material.brand or material.manufacturer
+
+        # 品牌：原始值只做基本清理（不再覆写）
+        raw_brand = self._normalize_text(material.brand) or None
+
+        # manufacturer 作为备选原始值
+        raw_manufacturer = self._normalize_text(material.manufacturer) or None
+
+        # 归一化品牌：完整回退链
+        material.normalized_brand, material.brand_source = (
+            self._normalize_brand_with_fallback(
+                raw_brand or raw_manufacturer,
+                normalized_name=material.normalized_name or material.name,
+            )
+        )
+
+        # manufacturer 同步到归一化结果
+        material.manufacturer = raw_manufacturer or material.normalized_brand
+
+        # 名称/规格归一化（非破坏性）
         material.normalized_name = self._normalize_material_name(material.name)
         material.normalized_spec = self._normalize_spec(material.spec)
 
@@ -213,16 +295,43 @@ class DefaultMaterialNormalizer:
 
         return normalized
 
-    def _normalize_brand(self, value: str | None) -> str | None:
-        if not value:
-            return None
-        normalized = self._normalize_text(value)
-        if normalized in self.BRAND_ALIASES:
-            return self.BRAND_ALIASES[normalized]
+    def _normalize_brand_with_fallback(
+        self,
+        value: str | None,
+        normalized_name: str = "",
+    ) -> tuple[str | None, str]:
+        """品牌回退链，返回 ``(normalized_brand, brand_source)``。
 
+        回退顺序：
+        1. 明确品牌（非"国产"/"甲供"等触发器）→ 别名映射→RapidFuzz
+           → 成功返回 (规范名, "explicit")
+        2. "国产"类占位符/空值 → 类别推断→具体国产品牌
+           → 成功返回 (正泰/常熟/茗熔, "inferred")
+        3. 类别推断失败 → (None, "pending")
+        4. 品牌有值但全链路无法识别 → (None, "pending")
+        """
+        # 空值直接走推断
+        if not value:
+            inferred = self._infer_brand_from_category(normalized_name)
+            if inferred and inferred not in _TRIGGER_BRANDS_FOR_INFERENCE:
+                return inferred, "inferred"
+            return None, "pending"
+
+        # Step 1: 别名映射
+        if value in self.BRAND_ALIASES:
+            canonical = self.BRAND_ALIASES[value]
+            # "国产"在别名字典中映射到自身——这是推断触发器，不是目标品牌
+            if canonical in _TRIGGER_BRANDS_FOR_INFERENCE:
+                inferred = self._infer_brand_from_category(normalized_name)
+                if inferred and inferred not in _TRIGGER_BRANDS_FOR_INFERENCE:
+                    return inferred, "inferred"
+                return None, "pending"
+            return canonical, "explicit"
+
+        # Step 2: RapidFuzz 模糊回退
         if _HAS_RAPIDFUZZ:
             choices = list(self.BRAND_ALIASES.keys())
-            match = process.extractOne(normalized, choices, scorer=fuzz.token_sort_ratio)
+            match = process.extractOne(value, choices, scorer=fuzz.token_sort_ratio)
             if match:
                 try:
                     key, score = match[0], match[1]
@@ -233,9 +342,48 @@ class DefaultMaterialNormalizer:
                 except Exception:
                     score = 0
                 if score >= 80:
-                    return self.BRAND_ALIASES.get(key, normalized)
+                    canonical = self.BRAND_ALIASES.get(key, value)
+                    if canonical in _TRIGGER_BRANDS_FOR_INFERENCE:
+                        inferred = self._infer_brand_from_category(normalized_name)
+                        if inferred and inferred not in _TRIGGER_BRANDS_FOR_INFERENCE:
+                            return inferred, "inferred"
+                        return None, "pending"
+                    return canonical, "explicit"
 
-        return normalized
+        # Step 3: 值有但无法识别 → 不做强制推断，标记 pending
+        return None, "pending"
+
+    def _infer_brand_from_category(self, normalized_name: str) -> str | None:
+        """根据归一化物料名称推断推荐国产品牌。
+
+        查找逻辑：遍历 MATERIAL_CATEGORY_DEFAULT_BRANDS，
+        用类别变体（规范名+别名）对物料名称做关键词匹配。
+        返回第一个匹配类别的首选品牌，或 None。
+        """
+        if not normalized_name:
+            return None
+
+        name_lower = normalized_name.lower()
+        for canonical_category, brands in self.MATERIAL_CATEGORY_DEFAULT_BRANDS.items():
+            if canonical_category.startswith("_"):
+                continue  # 跳过元数据条目
+            variants = self._get_category_variants(canonical_category)
+            for variant in variants:
+                if variant.lower() in name_lower:
+                    return brands[0]  # 首选品牌
+
+        return None
+
+    def _get_category_variants(self, canonical_category: str) -> list[str]:
+        """获取某物料类别的全部变体（含规范名本身）。
+
+        利用 MATERIAL_ALIASES 反向查找所有映射到此规范名的变体。
+        """
+        variants = [canonical_category]
+        for alias, canonical in self.MATERIAL_ALIASES.items():
+            if canonical == canonical_category and alias != canonical_category:
+                variants.append(alias)
+        return variants
 
     def _normalize_unit(self, value: str | None) -> str | None:
         if not value:

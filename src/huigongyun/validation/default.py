@@ -109,7 +109,7 @@ class DefaultProjectValidator(CrossSourceValidatorMixin):
                         details={"marker": "spec:pending"},
                     )
                 )
-            if not material.brand and not material.manufacturer:
+            if not material.brand and not material.manufacturer and not material.normalized_brand:
                 issues.append(
                     ValidationIssue(
                         issue_type="pending_material_brand",
