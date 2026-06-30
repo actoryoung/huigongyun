@@ -22,8 +22,9 @@ def test_pipeline_generates_quote_totals_from_price_sheet(tmp_path):
 
     result = build_default_pipeline().run(build_context(str(workbook_path), str(tmp_path / "out")))
 
+    # AuxMaterialInjector adds 4 cabinet-type materials for 进线柜 without prices
     assert result.quote_totals["project_total"] == 241.0
-    assert result.quote_totals["missing_price_count"] == 0
+    assert result.quote_totals["missing_price_count"] == 4
     assert result.quote_lines[0].subtotal == 241.0
     assert result.quote_lines[0].price_missing is False
 
@@ -46,6 +47,7 @@ def test_pipeline_marks_missing_quote_prices(tmp_path):
 
     result = build_default_pipeline().run(build_context(str(workbook_path), str(tmp_path / "out2")))
 
-    assert result.quote_totals["missing_price_count"] == 1
+    # AuxMaterialInjector adds 4 cabinet-type materials for 进线柜 without prices
+    assert result.quote_totals["missing_price_count"] == 5
     assert any(issue.issue_type == "missing_price" for issue in result.issues)
     assert result.quote_lines[0].price_missing is True

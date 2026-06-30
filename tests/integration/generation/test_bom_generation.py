@@ -22,6 +22,9 @@ def test_pipeline_generates_cabinets_and_bom_from_excel(tmp_path):
     assert len(result.cabinets) == 1
     assert result.cabinets[0].cabinet_no == "K1"
     assert result.cabinets[0].cabinet_type == "进线柜"
-    assert len(result.bom_lines) == 2
-    assert len(result.summary) == 2
+    # AuxMaterialInjector adds 4 cabinet-type materials for 进线柜:
+    # 框架断路器、测量电流互感器、多功能表、浪涌保护器
+    expected_aux_count = 4
+    assert len(result.bom_lines) == 2 + expected_aux_count
+    assert len(result.summary) == 2 + expected_aux_count
     assert result.summary[0].quantity in {1.0, 2.0}

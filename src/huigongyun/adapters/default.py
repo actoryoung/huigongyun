@@ -16,6 +16,7 @@ from ..parsing.multi_source import MultiSourceParser
 from ..parsing.registry import SourceParserRegistry, build_default_source_registry
 from ..validation.default import DefaultProjectValidator
 from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
+from ..generation.rules import AuxMaterialInjector
 from ..export.spreadsheet import ProjectExporter
 from ..normalization.default import DefaultMaterialNormalizer as _DefaultMaterialNormalizer
 from ..pricing.default import DefaultQuoteGenerator as _DefaultQuoteGenerator
@@ -67,9 +68,10 @@ class DefaultMaterialNormalizer(MaterialNormalizer):
 
 
 class DefaultBomGenerator(BomGenerator):
-    """生成 BOM 行；在无数据时提供占位项。"""
+    """生成 BOM 行；注入辅材规则后聚合。"""
 
     def generate(self, result: ProjectResult) -> ProjectResult:
+        # 1. 确保基础 BOM 存在
         if not result.bom_lines:
             placeholder = MaterialRecord(name="placeholder material", unit="set", quantity=1, remarks="placeholder")
             result.bom_lines.append(
@@ -80,6 +82,11 @@ class DefaultBomGenerator(BomGenerator):
                     risk_tags=["needs-implementation"],
                 )
             )
+
+        # 2. 注入辅材规则
+        result = AuxMaterialInjector().inject(result)
+
+        # 3. 聚合
         return ExcelBomAggregator().generate(result)
 
 
