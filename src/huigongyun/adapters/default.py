@@ -15,7 +15,8 @@ from ..models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, Pr
 from ..parsing.multi_source import MultiSourceParser
 from ..parsing.registry import SourceParserRegistry, build_default_source_registry
 from ..validation.default import DefaultProjectValidator
-from ..generation.excel_bom import ExcelBomAggregator, ExcelCabinetAndBomExtractor
+from ..generation.excel_bom import ExcelBomAggregator
+from ..generation.multi_extractor import MultiSourceExtractor
 from ..generation.rules import AuxMaterialInjector
 from ..export.spreadsheet import ProjectExporter
 from ..normalization.default import DefaultMaterialNormalizer as _DefaultMaterialNormalizer
@@ -45,19 +46,13 @@ class DefaultProjectParser(ProjectParser):
 
 
 class DefaultCabinetExtractor(CabinetExtractor):
-    """提取机柜候选项；对于含 sheets 的文档委托给 Excel 提取器。
+    """提取机柜候选项；委托 MultiSourceExtractor 处理所有来源格式。
 
-    支持 Excel 单文件与多源合并输入（multi_source 目录中包含 xlsx 时
-    metadata 中同样会有 "sheets"）。
+    支持 sheets、Vision LLM、DWG 文本等多源输入合并与去重。
     """
 
     def extract(self, document: ProjectDocument) -> ProjectResult:
-        if document.metadata.get("sheets"):
-            return ExcelCabinetAndBomExtractor().extract(document)
-
-        result = ProjectResult(project=document)
-        result.cabinets.append(CabinetRecord(cabinet_no="TBD-01", cabinet_type="unknown", remarks="placeholder"))
-        return result
+        return MultiSourceExtractor().extract(document)
 
 
 class DefaultMaterialNormalizer(MaterialNormalizer):
