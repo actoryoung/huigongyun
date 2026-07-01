@@ -29,7 +29,7 @@ metadata:
 ## 架构约束
 - 大文件在 `examples/` 目录，Git不提交
 - 重型依赖 (OCR/ML/Vision LLM) lazy import，缺失时优雅回退
-- 测试运行: `PYTHONPATH=src pytest -p no:launch_testing --ignore=reference`
+- 测试运行: `PYTHONPATH=. pytest -p no:launch_testing --ignore=reference`
 
 **Why:** Phase 3a/3b/3c/3d 已全部交付，当前阻塞项是外部依赖（价格表数据、API Key配置）。
 

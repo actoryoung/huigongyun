@@ -23,16 +23,16 @@
 pip install -r requirements-dev.txt
 
 # 运行测试 (注意排除 reference/ 和 ROS 2 launch_testing 干扰)
-PYTHONPATH=src pytest -p no:launch_testing --ignore=reference
+PYTHONPATH=. pytest -p no:launch_testing --ignore=reference
 
 # 命令行运行
-PYTHONPATH=src python -m huigongyun /path/to/input.xlsx --output-dir ./output
+PYTHONPATH=. python -m huigongyun /path/to/input.xlsx --output-dir ./output
 
 # 启动 Web 演示壳
-PYTHONPATH=src python -m huigongyun.webapp
+PYTHONPATH=. python -m huigongyun.webapp
 
 # 一键演示 (默认项目B)
-PYTHONPATH=src python scripts/demo.py
+PYTHONPATH=. python scripts/demo.py
 ```
 
 ## 完整文档
@@ -43,7 +43,7 @@ PYTHONPATH=src python scripts/demo.py
 
 | 目录 | 说明 |
 |------|------|
-| `src/huigongyun/` | 主代码 (models/interfaces/pipeline + 7 个子模块) |
+| `huigongyun/` | 主代码 (models/interfaces/pipeline + 7 个子模块) |
 | `tests/` | 187 个测试用例 (unit/integration/e2e) |
 | `scripts/` | 演示与验证脚本 |
 | `docs/` | 初赛提案 |

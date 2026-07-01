@@ -3,8 +3,8 @@
 
 用法::
 
-    PYTHONPATH=src python scripts/demo_version_diff.py
-    PYTHONPATH=src python scripts/demo_version_diff.py --output output/version_diff/
+    PYTHONPATH=. python scripts/demo_version_diff.py
+    PYTHONPATH=. python scripts/demo_version_diff.py --output output/version_diff/
 """
 
 from __future__ import annotations

@@ -34,7 +34,7 @@
 | 风险分级体系 | ✅ | `validation/risk.py` RiskClassifier + 4 升级规则 + RiskDashboard |
 | 历史检索 RAG | ✅ | `retrieval/` FAISS + sentence-transformers，Pipeline 可选集成 |
 | 辅材规则注入 | ✅ | `generation/rules.py` AuxMaterialInjector，柜型/接地/进出线三层叠加，86 用例 |
-| HH Django 前端接线 | ✅ | `src/HH/` 外部项目 (String-Wan/HH)，analyze_file 已接入 huigongyun 流水线，PR 工作流 |
+| 多源统一萃取 | ✅ | `generation/multi_extractor.py` MultiSourceExtractor，合并 Excel/DWG/Vision LLM 产出 |
 
 ### 未完成 / 暂缓
 
@@ -76,7 +76,7 @@
 ## 目录结构
 
 ```
-src/huigongyun/
+huigongyun/
   models.py              # 数据模型 (ProjectDocument/ProjectResult/CabinetRecord/
                          #   MaterialRecord/BomLine/QuoteLine/ValidationIssue/SourceRef)
   interfaces.py          # 主流程接口 + 二级抽取/检索接口协议 (10个Protocol)
@@ -195,10 +195,9 @@ PdfSourceParser.parse(pdf_path)
 
 ### 包结构与 PYTHONPATH
 
-项目使用**嵌套结构** `src/huigongyun/`（非 flat `src/`）：
-- 开发时使用 `PYTHONPATH=src`，无需 `pip install`
-- `pip install -e .` 的 editable 模式**不可用**（setuptools build-backend 缺少 `build_editable` hook）
-- `pyproject.toml` 中 `[tool.pytest.ini_options] pythonpath = ["src"]` 确保 pytest 能找到包
+项目使用**扁平结构** `huigongyun/`（包直接在项目根目录下）：
+- 开发时使用 `PYTHONPATH=.`，无需 `pip install`
+- `pyproject.toml` 中 `[tool.pytest.ini_options] pythonpath = ["."]` 确保 pytest 能找到包
 
 ### 测试运行
 
@@ -206,10 +205,10 @@ PdfSourceParser.parse(pdf_path)
 # 注意：必须排除 reference/ 目录（内含 marker/MinerU 的测试会被误收集）
 # ROS 2 humble 的 launch_testing 插件会导致 collection 报错，需要 -p no:launch_testing
 
-PYTHONPATH=src pytest -p no:launch_testing --ignore=reference
+PYTHONPATH=. pytest -p no:launch_testing --ignore=reference
 
 # 单独运行单元测试
-PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
+PYTHONPATH=. pytest tests/unit/ -p no:launch_testing --ignore=reference
 ```
 
 **当前测试状态 (2026-06-30):** 278 collected, 274 passed, 2 failed, 2 skipped
@@ -229,7 +228,7 @@ PYTHONPATH=src pytest tests/unit/ -p no:launch_testing --ignore=reference
 
 1. **ROS 2 `launch_testing` 插件冲突** — `/opt/ros/humble/lib/python3.10/site-packages/launch_testing/pytest/hooks.py` 干扰 pytest collection，必须使用 `-p no:launch_testing`
 2. **`reference/` 目录测试干扰** — `reference/marker/tests/` 需要 `datasets` 等依赖，pytest 会误收集。解决：`--ignore=reference` 或配置 `[tool.pytest.ini_options] norecursedirs = ["reference"]`
-3. **Editable install 不可用** — 使用 `PYTHONPATH=src` 代替
+3. **Editable install 不可用** — 使用 `PYTHONPATH=.` 代替
 
 ## 关键业务规则
 

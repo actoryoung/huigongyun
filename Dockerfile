@@ -18,7 +18,7 @@ COPY . /app
 RUN chown -R appuser:appgroup /app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src:$PYTHONPATH \
+    PYTHONPATH=/app:$PYTHONPATH \
     HOME=/home/appuser
 
 USER appuser

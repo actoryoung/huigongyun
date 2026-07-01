@@ -24,7 +24,7 @@ from collections import Counter
 from pathlib import Path
 
 # Ensure the src directory is on the path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from huigongyun.bootstrap import build_default_pipeline, build_context
 from huigongyun.parsing.word import WordSourceParser

@@ -3,9 +3,9 @@
 
 用法::
 
-    PYTHONPATH=src python scripts/demo_retrieval.py
-    PYTHONPATH=src python scripts/demo_retrieval.py --index path/to/input.xlsx
-    PYTHONPATH=src python scripts/demo_retrieval.py --query "断路器 施耐德"
+    PYTHONPATH=. python scripts/demo_retrieval.py
+    PYTHONPATH=. python scripts/demo_retrieval.py --index path/to/input.xlsx
+    PYTHONPATH=. python scripts/demo_retrieval.py --query "断路器 施耐德"
 """
 
 from __future__ import annotations
