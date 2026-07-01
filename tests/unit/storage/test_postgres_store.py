@@ -4,7 +4,7 @@ import pytest
 
 def test_upsert_sql_contains_on_conflict(monkeypatch, fake_db_mem):
     # simulate configured PG environment
-    from huigongyun.storage import postgres_store as pg
+    from src.storage import postgres_store as pg
 
     monkeypatch.setattr(pg, "_HAS_PG", True)
     monkeypatch.setattr(pg, "_get_dsn", lambda: "dsn")
@@ -43,7 +43,7 @@ def test_upsert_sql_contains_on_conflict(monkeypatch, fake_db_mem):
 
 
 def test_idempotent_save_with_fake_conn(monkeypatch, fake_db_mem):
-    from huigongyun.storage import postgres_store as pg
+    from src.storage import postgres_store as pg
 
     monkeypatch.setattr(pg, "_HAS_PG", True)
     monkeypatch.setattr(pg, "_get_dsn", lambda: "dsn")
@@ -94,7 +94,7 @@ def test_idempotent_save_with_fake_conn(monkeypatch, fake_db_mem):
 
 def test_save_run_summary_retries_on_transient_error(monkeypatch, fake_db_mem):
     """Simulate transient execute failure on INSERT; expect retry wrapper to retry and succeed."""
-    from huigongyun.storage import postgres_store as pg
+    from src.storage import postgres_store as pg
 
     monkeypatch.setattr(pg, "_HAS_PG", True)
     monkeypatch.setattr(pg, "_get_dsn", lambda: "dsn")

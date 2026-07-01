@@ -2,10 +2,10 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from huigongyun.export.spreadsheet import ProjectExporter
-from huigongyun.models import ProjectResult
-from huigongyun.parsing.excel import ExcelProjectParser
-from huigongyun.indexing.cabinets import CabinetIndexBuilder
+from src.export.spreadsheet import ProjectExporter
+from src.models import ProjectResult
+from src.parsing.excel import ExcelProjectParser
+from src.indexing.cabinets import CabinetIndexBuilder
 
 
 def test_cabinet_index_builder_returns_markers_for_missing_numbers(tmp_path):

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from huigongyun.comparison.differ import VersionDiffer
-from huigongyun.comparison.models import VersionDiff
-from huigongyun.models import (
+from src.comparison.differ import VersionDiffer
+from src.comparison.models import VersionDiff
+from src.models import (
     BomLine,
     CabinetRecord,
     MaterialRecord,

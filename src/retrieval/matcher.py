@@ -5,8 +5,8 @@
 
 用法::
 
-    from huigongyun.retrieval.matcher import EmbeddingMaterialMatcher
-    from huigongyun.retrieval import SentenceTransformerProvider
+    from src.retrieval.matcher import EmbeddingMaterialMatcher
+    from src.retrieval import SentenceTransformerProvider
 
     provider = SentenceTransformerProvider()
     matcher = EmbeddingMaterialMatcher(provider)

@@ -1,7 +1,7 @@
 """EmbeddingMaterialMatcher 单元测试。"""
 
-from huigongyun.retrieval.embeddings import EmbeddingProvider
-from huigongyun.retrieval.matcher import EmbeddingMaterialMatcher
+from src.retrieval.embeddings import EmbeddingProvider
+from src.retrieval.matcher import EmbeddingMaterialMatcher
 
 
 class FakeEmbeddingProvider(EmbeddingProvider):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.parsing.vision_llm import (
+from src.parsing.vision_llm import (
     EXTRACTION_SCHEMA,
     SYSTEM_PROMPT,
     VisionLLMExtractionResult,
@@ -300,7 +300,7 @@ class TestVisionLLMExtractionResult:
         assert r.success is False
 
     def test_total_items_counts_cabinets_and_materials(self):
-        from huigongyun.models import CabinetRecord, MaterialRecord
+        from src.models import CabinetRecord, MaterialRecord
 
         r = VisionLLMExtractionResult(
             cabinets=[CabinetRecord(cabinet_no="A1")],

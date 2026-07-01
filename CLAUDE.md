@@ -76,7 +76,7 @@
 ## 目录结构
 
 ```
-huigongyun/
+src/
   models.py              # 数据模型 (ProjectDocument/ProjectResult/CabinetRecord/
                          #   MaterialRecord/BomLine/QuoteLine/ValidationIssue/SourceRef)
   interfaces.py          # 主流程接口 + 二级抽取/检索接口协议 (10个Protocol)
@@ -195,7 +195,7 @@ PdfSourceParser.parse(pdf_path)
 
 ### 包结构与 PYTHONPATH
 
-项目使用**扁平结构** `huigongyun/`（包直接在项目根目录下）：
+项目使用**扁平结构** `src/`（包直接在项目根目录下）：
 - 开发时使用 `PYTHONPATH=.`，无需 `pip install`
 - `pyproject.toml` 中 `[tool.pytest.ini_options] pythonpath = ["."]` 确保 pytest 能找到包
 

@@ -14,7 +14,7 @@ Dependency:
 
 Usage::
 
-    from huigongyun.parsing.marker_adapter import MarkerAdapter
+    from src.parsing.marker_adapter import MarkerAdapter
 
     adapter = MarkerAdapter()
     result = adapter.convert("drawing.pdf")  # → MarkerResult

@@ -22,8 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-huigongyun = "huigongyun.cli:main"
-huigongyun-web = "huigongyun.webapp:main"
+huigongyun = "src.cli:main"
+huigongyun-web = "src.webapp:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0", "ruff>=0.6.0", "mypy>=1.11.0"]
@@ -37,6 +37,7 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
+exclude = ["tests*", "scripts*", "docs*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

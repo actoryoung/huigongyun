@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
+from src.bootstrap import build_context, build_default_pipeline
 
 
 def test_pipeline_retains_pending_marks_for_unresolved_fields(tmp_path):

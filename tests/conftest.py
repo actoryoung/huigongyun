@@ -40,7 +40,7 @@ def sample_excel_path(tmp_path):
 def app_client():
     """Provide Flask test client when available; skip otherwise."""
     try:
-        from huigongyun.webapp import create_app
+        from src.webapp import create_app
     except Exception:
         import pytest as _pytest
 

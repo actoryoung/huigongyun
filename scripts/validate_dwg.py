@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from huigongyun.parsing.dwg import DwgSourceParser
+from src.parsing.dwg import DwgSourceParser
 
 
 # ── 电气工程领域验证规则 ──

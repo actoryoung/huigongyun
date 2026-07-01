@@ -43,7 +43,7 @@ PYTHONPATH=. python scripts/demo.py
 
 | 目录 | 说明 |
 |------|------|
-| `huigongyun/` | 主代码 (models/interfaces/pipeline + 7 个子模块) |
+| `src/` | 主代码 (models/interfaces/pipeline + 7 个子模块) |
 | `tests/` | 187 个测试用例 (unit/integration/e2e) |
 | `scripts/` | 演示与验证脚本 |
 | `docs/` | 初赛提案 |

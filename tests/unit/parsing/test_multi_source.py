@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.parsing.multi_source import MultiSourceParser
+from src.parsing.multi_source import MultiSourceParser
 
 
 class TestMultiSourceParser:

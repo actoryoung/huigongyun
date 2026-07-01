@@ -18,10 +18,9 @@ COPY . /app
 RUN chown -R appuser:appgroup /app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app:$PYTHONPATH \
     HOME=/home/appuser
 
 USER appuser
 
 # Default command runs the demo webapp. In production use a proper WSGI server.
-CMD ["python", "-c", "from huigongyun.webapp import main; main()"]
+CMD ["python", "-c", "from src.webapp import main; main()"]

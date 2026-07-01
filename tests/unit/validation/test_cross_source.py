@@ -2,7 +2,7 @@
 
 import pytest
 
-from huigongyun.validation.cross_source import (
+from src.validation.cross_source import (
     CrossSourceValidatorMixin,
     extract_cabinet_numbers_from_texts,
     _normalize_cabinet_type,
@@ -58,7 +58,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_no_data_produces_no_issues(self):
         """无跨源数据时静默跳过。"""
-        from huigongyun.models import ProjectDocument, ProjectResult
+        from src.models import ProjectDocument, ProjectResult
 
         doc = ProjectDocument(project_name="test", files=[])
         result = ProjectResult(project=doc)
@@ -68,7 +68,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_cabinet_number_consistency_with_empty_dwg(self):
         """DWG 无文本时不触发规则。"""
-        from huigongyun.models import ProjectDocument, ProjectResult
+        from src.models import ProjectDocument, ProjectResult
 
         doc = ProjectDocument(project_name="test", files=[], metadata={"electrical_texts": []})
         result = ProjectResult(project=doc)
@@ -79,7 +79,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_cabinet_number_consistency_detects_missing(self):
         """DWG 有柜号但 Excel 无 → issue。"""
-        from huigongyun.models import ProjectDocument, ProjectResult, CabinetRecord
+        from src.models import ProjectDocument, ProjectResult, CabinetRecord
 
         doc = ProjectDocument(project_name="test", files=[])
         result = ProjectResult(project=doc)
@@ -98,7 +98,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_brand_compliance_skips_when_no_preferred(self):
         """无 preferred_brands 时跳过品牌规则。"""
-        from huigongyun.models import ProjectDocument, ProjectResult
+        from src.models import ProjectDocument, ProjectResult
 
         doc = ProjectDocument(project_name="test", files=[])
         result = ProjectResult(project=doc)
@@ -108,7 +108,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_ward_compliance_detects_non_preferred(self):
         """BOM 中使用非推荐品牌 → issue。"""
-        from huigongyun.models import ProjectDocument, ProjectResult, BomLine, MaterialRecord
+        from src.models import ProjectDocument, ProjectResult, BomLine, MaterialRecord
 
         doc = ProjectDocument(project_name="test", files=[])
         result = ProjectResult(project=doc)
@@ -124,7 +124,7 @@ class TestCrossSourceValidatorMixin:
 
     def test_brand_compliance_uses_normalized_brand(self):
         """读取 normalized_brand 做合规检查（兜底类别推断品牌）。"""
-        from huigongyun.models import ProjectDocument, ProjectResult, BomLine, MaterialRecord
+        from src.models import ProjectDocument, ProjectResult, BomLine, MaterialRecord
 
         doc = ProjectDocument(project_name="test", files=[])
         result = ProjectResult(project=doc)

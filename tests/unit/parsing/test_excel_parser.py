@@ -2,8 +2,8 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.adapters import DefaultProjectParser
-from huigongyun.parsing.excel import ExcelProjectParser
+from src.adapters import DefaultProjectParser
+from src.parsing.excel import ExcelProjectParser
 
 
 def test_excel_project_parser_reads_sheet_metadata(tmp_path):

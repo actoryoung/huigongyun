@@ -3,7 +3,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.webapp import RUN_STORAGE, create_app
+from src.webapp import RUN_STORAGE, create_app
 
 
 def _run_pipeline_sync(client, workbook_path, filename):

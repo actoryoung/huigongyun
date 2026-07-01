@@ -1,6 +1,6 @@
 import json
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
+from src.bootstrap import build_context, build_default_pipeline
 
 
 def test_default_pipeline_smoke(tmp_path):

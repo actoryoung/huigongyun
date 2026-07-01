@@ -47,11 +47,11 @@ def main():
     args = parser.parse_args()
 
     # 延迟导入 — 避免加载重型依赖直到需要
-    from huigongyun.bootstrap import build_context, build_default_pipeline
+    from src.bootstrap import build_context, build_default_pipeline
 
     # 检查检索依赖
     try:
-        from huigongyun.retrieval import (
+        from src.retrieval import (
             CaseIndexer,
             FaissCaseRetriever,
             SentenceTransformerProvider,

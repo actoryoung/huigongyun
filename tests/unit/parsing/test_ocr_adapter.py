@@ -39,7 +39,7 @@ def test_image_to_dict_monkeypatched(monkeypatch, tmp_path):
     fake_pil.Image = image_mod
     monkeypatch.setitem(sys.modules, 'PIL', fake_pil)
 
-    from huigongyun.parsing.ocr_adapter import TesseractAdapter
+    from src.parsing.ocr_adapter import TesseractAdapter
 
     img_path = tmp_path / 'sample.png'
     img_path.write_bytes(b'')
@@ -93,7 +93,7 @@ def test_pdf_to_dict_monkeypatched(monkeypatch):
     # ensure PIL is present for adapter imports (we return FakeImage instances directly)
     monkeypatch.setitem(sys.modules, 'PIL', types.ModuleType('PIL'))
 
-    from huigongyun.parsing.ocr_adapter import TesseractAdapter
+    from src.parsing.ocr_adapter import TesseractAdapter
 
     res = TesseractAdapter.pdf_to_dict('dummy.pdf', dpi=150)
     assert 'pages' in res

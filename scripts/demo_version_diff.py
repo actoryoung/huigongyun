@@ -56,8 +56,8 @@ def main():
     print()
 
     # 延迟导入，避免启动时加载重型依赖
-    from huigongyun.bootstrap import build_context, build_default_pipeline
-    from huigongyun.comparison.differ import VersionDiffer
+    from src.bootstrap import build_context, build_default_pipeline
+    from src.comparison.differ import VersionDiffer
 
     # 构建流水线
     pipeline = build_default_pipeline()

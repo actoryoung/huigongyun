@@ -1,5 +1,5 @@
-from huigongyun.models import BomLine, MaterialRecord, ProjectDocument, ProjectResult
-from huigongyun.normalization.default import DefaultMaterialNormalizer
+from src.models import BomLine, MaterialRecord, ProjectDocument, ProjectResult
+from src.normalization.default import DefaultMaterialNormalizer
 
 
 def test_material_normalizer_maps_aliases_and_cleans_fields():

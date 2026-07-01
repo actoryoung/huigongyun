@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from huigongyun.models import ProjectDocument, ProjectResult, ValidationIssue
-from huigongyun.validation.risk import RiskClassifier, RiskDashboard, RiskLevel
+from src.models import ProjectDocument, ProjectResult, ValidationIssue
+from src.validation.risk import RiskClassifier, RiskDashboard, RiskLevel
 
 
 def _make_issue(issue_type: str, **kwargs) -> ValidationIssue:

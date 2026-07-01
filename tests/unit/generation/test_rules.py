@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.generation.rules import AuxMaterialInjector
+from src.generation.rules import AuxMaterialInjector
 
 
 class TestRulesLoading:
@@ -148,7 +148,7 @@ class TestInboundOutboundNormalization:
         assert injector._normalize_inbound(raw) is None
 
 
-from huigongyun.models import CabinetRecord, ProjectDocument, ProjectResult
+from src.models import CabinetRecord, ProjectDocument, ProjectResult
 
 
 def _make_cabinet(cabinet_no="1AA1", cabinet_type=None, grounding=None, inbound=None, **kw):
@@ -236,7 +236,7 @@ class TestSingleLayerInjection:
         assert "电缆夹具" in names
 
 
-from huigongyun.models import BomLine, MaterialRecord
+from src.models import BomLine, MaterialRecord
 
 
 class TestMergeAndDedup:

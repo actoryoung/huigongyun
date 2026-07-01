@@ -3,7 +3,7 @@ from pathlib import Path
 import types
 import sys
 
-from huigongyun.parsing.pdf import PdfOcrParser
+from src.parsing.pdf import PdfOcrParser
 
 
 def test_pdf_source_detection_no_pdfminer(monkeypatch, tmp_path):
@@ -28,7 +28,7 @@ def test_pdf_ocr_fallback_to_tesseract(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, 'pdfminer.high_level', types.SimpleNamespace(extract_text=FakePdfMiner.extract_text))
 
     # Monkeypatch TesseractAdapter.pdf_to_dict on the real module
-    import huigongyun.parsing.ocr_adapter as ocr_adapter
+    import src.parsing.ocr_adapter as ocr_adapter
     monkeypatch.setattr(ocr_adapter.TesseractAdapter, 'pdf_to_dict', lambda p, dpi=300: {'pages': [{'page': 1}], 'plain_text': 'OCR_RESULT'})
 
     p = Path(tmp_path) / "scanned.pdf"

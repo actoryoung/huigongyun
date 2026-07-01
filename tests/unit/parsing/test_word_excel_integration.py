@@ -2,8 +2,8 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.parsing.excel import ExcelProjectParser
-from huigongyun.parsing.registry import build_default_source_registry
+from src.parsing.excel import ExcelProjectParser
+from src.parsing.registry import build_default_source_registry
 
 
 def test_excel_multi_sheet_and_records(tmp_path):

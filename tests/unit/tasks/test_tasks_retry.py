@@ -3,7 +3,7 @@ import pytest
 
 def test_tasks_use_retry_wrapper(monkeypatch, tmp_path, sample_run_summary):
     # import inside test to allow monkeypatching before heavy imports
-    from huigongyun import tasks
+    from src import tasks
 
     # patch pipeline to avoid heavy processing
     class FakeProject:

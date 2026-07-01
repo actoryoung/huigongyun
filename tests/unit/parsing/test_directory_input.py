@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.parsing.excel import ExcelProjectParser
+from src.parsing.excel import ExcelProjectParser
 
 
 def test_directory_input_returns_ambiguous_marker(tmp_path):

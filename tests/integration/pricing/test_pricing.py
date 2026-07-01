@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
+from src.bootstrap import build_context, build_default_pipeline
 
 
 def test_pipeline_generates_quote_totals_from_price_sheet(tmp_path):

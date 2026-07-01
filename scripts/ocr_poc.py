@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from huigongyun.parsing.ocr_adapter import TesseractAdapter
+from src.parsing.ocr_adapter import TesseractAdapter
 
 
 def main():

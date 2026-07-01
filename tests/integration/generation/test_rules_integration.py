@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.adapters.default import DefaultBomGenerator, DefaultCabinetExtractor, DefaultMaterialNormalizer, DefaultProjectParser
-from huigongyun.generation.rules import AuxMaterialInjector
-from huigongyun.models import BomLine, MaterialRecord
+from src.adapters.default import DefaultBomGenerator, DefaultCabinetExtractor, DefaultMaterialNormalizer, DefaultProjectParser
+from src.generation.rules import AuxMaterialInjector
+from src.models import BomLine, MaterialRecord
 
 
 FIXTURE_DIR = Path(__file__).parent.parent.parent / "fixtures"
@@ -61,7 +61,7 @@ class TestFullPipeline:
         result = DefaultCabinetExtractor().extract(doc)
 
         # 创建一个无 dimensions 的柜体（占位符无法解析）
-        from huigongyun.models import CabinetRecord
+        from src.models import CabinetRecord
         result.cabinets.append(CabinetRecord(
             cabinet_no="PEND01", cabinet_type="配电箱",
             grounding_mode="TN-S", dimensions=None, circuit_count=None,
@@ -77,7 +77,7 @@ class TestFullPipeline:
     def test_no_regression_project_b_pattern(self):
         """验证三层注入不影响已有柜体结果（项目 B 模式）。"""
         # 无 cabinet_type/grounding/inbound 的柜体不应注入任何物料
-        from huigongyun.models import CabinetRecord, ProjectDocument, ProjectResult
+        from src.models import CabinetRecord, ProjectDocument, ProjectResult
         doc = ProjectDocument(project_name="test")
         result = ProjectResult(project=doc, cabinets=[
             CabinetRecord(cabinet_no="NO-RULES-01"),

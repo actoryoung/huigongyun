@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.retrieval.embeddings import EmbeddingProvider
-from huigongyun.retrieval.faiss_index import FaissCaseRetriever
-from huigongyun.retrieval.indexer import CaseIndexer
-from huigongyun.retrieval.models import IndexedCase
-from huigongyun.models import (
+from src.retrieval.embeddings import EmbeddingProvider
+from src.retrieval.faiss_index import FaissCaseRetriever
+from src.retrieval.indexer import CaseIndexer
+from src.retrieval.models import IndexedCase
+from src.models import (
     BomLine,
     CabinetRecord,
     MaterialRecord,

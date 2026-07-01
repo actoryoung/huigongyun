@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.parsing.registry import build_default_source_registry
+from src.parsing.registry import build_default_source_registry
 
 
 def test_source_registry_uses_excel_parser_for_workbooks(tmp_path):

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from huigongyun.retrieval.embeddings import EmbeddingProvider, SentenceTransformerProvider
+from src.retrieval.embeddings import EmbeddingProvider, SentenceTransformerProvider
 
 
 class TestSentenceTransformerProvider:

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
-from huigongyun.comparison.differ import VersionDiffer
+from src.bootstrap import build_context, build_default_pipeline
+from src.comparison.differ import VersionDiffer
 
 PROJECT_D_DIR = Path(__file__).parent.parent.parent.parent / "examples" / "项目D_中英文设备清单" / "输入资料"
 OLD_EXCEL = PROJECT_D_DIR / "项目D_设备清单_20250701.xlsx"

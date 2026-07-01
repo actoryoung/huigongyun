@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
+from src.bootstrap import build_context, build_default_pipeline
 
 
 def test_pipeline_generates_cabinets_and_bom_from_excel(tmp_path):

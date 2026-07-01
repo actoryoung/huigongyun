@@ -2,7 +2,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
-from huigongyun.bootstrap import build_context, build_default_pipeline
+from src.bootstrap import build_context, build_default_pipeline
 
 
 def test_validation_detects_duplicate_bom_lines_and_export_creates_excel(tmp_path):

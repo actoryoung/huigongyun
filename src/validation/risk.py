@@ -5,7 +5,7 @@
 
 使用方式::
 
-    from huigongyun.validation.risk import RiskClassifier, RiskLevel
+    from src.validation.risk import RiskClassifier, RiskLevel
 
     classifier = RiskClassifier()
     graded = classifier.classify(result.issues, result)

@@ -2,8 +2,8 @@ from pathlib import Path
 import types
 import sys
 
-from huigongyun.parsing.registry import build_default_source_registry
-import huigongyun.parsing.dwg as dwg_mod
+from src.parsing.registry import build_default_source_registry
+import src.parsing.dwg as dwg_mod
 
 
 def test_dwg_requires_conversion_when_converter_returns_none(monkeypatch, tmp_path):

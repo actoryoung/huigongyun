@@ -5,7 +5,7 @@
 
 使用方式::
 
-    from huigongyun.retrieval import FaissCaseRetriever, SentenceTransformerProvider
+    from src.retrieval import FaissCaseRetriever, SentenceTransformerProvider
 
     provider = SentenceTransformerProvider()
     retriever = FaissCaseRetriever(provider)

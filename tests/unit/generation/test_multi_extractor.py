@@ -6,8 +6,8 @@ merging with confidence priority, and empty-input fallback.
 
 import pytest
 
-from huigongyun.generation.multi_extractor import MultiSourceExtractor
-from huigongyun.models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, SourceRef
+from src.generation.multi_extractor import MultiSourceExtractor
+from src.models import BomLine, CabinetRecord, MaterialRecord, ProjectDocument, ProjectResult, SourceRef
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

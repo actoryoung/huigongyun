@@ -6,7 +6,7 @@ to be downloaded (no actual PDF conversion).
 
 import pytest
 
-from huigongyun.parsing.marker_adapter import (
+from src.parsing.marker_adapter import (
     MarkerAdapter,
     MarkerResult,
     MarkerTable,

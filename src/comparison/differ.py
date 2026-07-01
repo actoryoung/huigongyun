@@ -2,7 +2,7 @@
 
 使用方式::
 
-    from huigongyun.comparison.differ import VersionDiffer
+    from src.comparison.differ import VersionDiffer
 
     differ = VersionDiffer()
     diff = differ.compare(old_result, new_result,
