@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -455,11 +454,12 @@ class TestEdgeCasesAndDegradation:
         assert "E06" in cabinet_nos
 
     def test_existing_derived_from_not_overwritten(self):
-        """已有 derived_from 非空时保留原值（保留人工修正）。"""
+        """已有 derived_from 非空时保留原值 — 同名同规触发合并时也不覆盖。"""
         cabinet = _make_cabinet("E07", "进线柜", None, None)
         result = _make_result([cabinet])
 
-        manual = MaterialRecord(name="框架断路器", spec="NSX400N", unit="台")
+        # 用与规则模板相同的 spec（"按额定电流"）确保触发真正的合并
+        manual = MaterialRecord(name="框架断路器", spec="按额定电流", unit="台")
         manual.quantity = 1
         result.bom_lines.append(BomLine(
             cabinet_no="E07", material=manual, derived_from="人工修正"
@@ -467,5 +467,7 @@ class TestEdgeCasesAndDegradation:
 
         result = AuxMaterialInjector().inject(result)
 
-        manual_lines = [l for l in result.bom_lines if l.derived_from == "人工修正"]
-        assert len(manual_lines) == 1, "Manual edit should be preserved"
+        # 合并后仍保留原 derived_from
+        cb_lines = [l for l in result.bom_lines if l.material.name == "框架断路器"]
+        assert len(cb_lines) == 1, "Same name+spec+unit should merge into one line"
+        assert cb_lines[0].derived_from == "人工修正", "Manual derived_from must survive merge"

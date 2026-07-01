@@ -55,6 +55,26 @@ _FALLBACK_RULES: dict[str, Any] = {
                 {"name": "塑壳断路器", "spec": "按额定电流", "unit": "台", "quantity": 2},
             ],
         },
+        "变频柜": {
+            "materials": [
+                {"name": "变频器", "spec": "按功率", "unit": "台", "quantity": 1},
+                {"name": "输入电抗器", "spec": "按功率", "unit": "台", "quantity": 1},
+                {"name": "塑壳断路器", "spec": "按功率", "unit": "台", "quantity": 1},
+            ],
+        },
+        "MCC柜": {
+            "materials": [
+                {"name": "塑壳断路器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+                {"name": "接触器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+                {"name": "热继电器", "spec": "按回路配置", "unit": "只", "quantity": "按回路数"},
+            ],
+        },
+        "配电箱": {
+            "materials": [
+                {"name": "微型断路器", "spec": "按回路配置", "unit": "台", "quantity": "按回路数"},
+                {"name": "漏电保护器", "spec": "按回路配置", "unit": "只", "quantity": "按回路数"},
+            ],
+        },
     },
     "grounding_materials": {
         "TN-S": [
@@ -201,7 +221,7 @@ class AuxMaterialInjector:
     # ── 合并去重 ───────────────────────────────────────────────────
 
     def _merge_into_existing(self, new_lines: list[BomLine], existing: list[BomLine]) -> None:
-        """将新 BomLine 合并到现有列表，同名同规格同柜号 quantity 相加。"""
+        """将新 BomLine 合并到现有列表，同名同规格同品牌同柜号 quantity 相加。"""
         for new_line in new_lines:
             merged = False
             for exist_line in existing:

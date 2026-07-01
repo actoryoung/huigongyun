@@ -45,13 +45,14 @@ class TestFullPipeline:
         result = DefaultMaterialNormalizer().normalize(result)
 
         rule_lines = [l for l in result.bom_lines if l.derived_from == "规则推算"]
+        assert len(rule_lines) > 0, "Should have rule lines after normalization"
+
         at_least_one_has_brand = any(
             l.material.normalized_brand and l.material.normalized_brand != "pending"
             for l in rule_lines
         )
         # 归一化后品牌应被填充（国产柜体 → 国产品牌映射）
-        # 注意：如果品牌关键词未触发推断则 may not be filled
-        assert len(rule_lines) > 0, "Should have rule lines after normalization"
+        assert at_least_one_has_brand, "At least one injected material should get brand after normalization"
 
     def test_pending_quantity_generates_validation_issue(self):
         """pending_quantity 标记物料在导出时有提示。"""
