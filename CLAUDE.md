@@ -4,9 +4,11 @@
 
 低压电气成套智能报价清单生成系统 MVP。从非结构化资料（DWG/PDF/Excel/Word/图片）自动生成逐柜 BOM、项目汇总 BOM、报价清单与校验报告。目标是输出可追溯、支持人工修正、可导出的结构化结果。
 
-## 当前状态 (2026-06-30)
+## 当前状态 (2026-07-01)
 
-**Phase 1 & 2 已完成。Phase 3a/3b/3c 已交付。Phase 3d 已实现（可选依赖）。**
+**Phase 1 & 2 已完成。Phase 3a/3b/3c 已交付。Phase 3d 已实现（可选依赖）。项目进入收尾/维护阶段。**
+
+> 🔵 **项目阶段：维护期** — 核心闭环全部交付。剩余工作量以 UI 调整、配置变更、测试补充、小范围 Bug 修复为主，不再有架构级变更或大规模新功能开发。模型策略已调整，Flash 覆盖面大幅扩展以控制 Pro 消耗。
 
 ### 已交付模块
 
@@ -318,6 +320,51 @@ PYTHONPATH=. pytest tests/unit/ -p no:launch_testing --ignore=reference
 
 注：agent frontmatter 中 `sonnet`/`haiku` 分别映射到用户配置的 `ANTHROPIC_DEFAULT_SONNET_MODEL` (Pro) / `ANTHROPIC_DEFAULT_HAIKU_MODEL` (Flash)。
 
+### 维护期模型降级
+
+项目进入收尾/维护阶段后，核心模块接口已定型。以下原本由 Pro 处理的场景降级为 Flash：
+
+| 场景 | 降级理由 |
+|------|---------|
+| 核心数据模型小改（加字段、加新类、枚举值） | 模式固定，按既有 `models.py` / `interfaces.py` 模式机械操作，不改数据契约 |
+| 跨模块串联（已有 Protocol 定义的调用） | 接口稳定，按约定调用，不需理解交互副作用 |
+| BOM 生成规则增补（`generation/` 加新规则函数） | 规则是按模式叠加的，不涉及 pipeline 重构 |
+| Web UI 所有变更 | 纯展示层，Flask CRUD，无复杂业务逻辑 |
+| 配置变更（`config.py`、环境变量、词典 JSON） | 确定性规则，加字段/加枚举 |
+| 测试补充（任何层级的测试） | 被测接口已定型，填充用例是机械操作 |
+| 文档同步（CLAUDE.md、README 等） | 描述性工作，记录已存在的事实 |
+| 一次性脚本（demo、数据迁移、格式转换、验证脚本） | 复制已有模式，不需要设计 |
+| 简单 Bug 修复（根因明确、单模块改动） | 已知原因→已知修复，推理链很短 |
+| 代码审查（维护期小改动） | 改动量小且模式固定，Flash 审查已足够；发现可疑点可升级 Pro |
+| 运行测试 + 解读结果 | 执行+报告，不论结果 Pro/Flash 都会得到相同信息 |
+| 文件探索 + 信息收集 | 本来就用 Flash，不变 |
+
+**保留 Pro（维护期不变）：**
+
+| 场景 | 保留理由 |
+|------|---------|
+| 架构设计 / pipeline 重构 | 影响全局数据流，错误代价高 |
+| 归一化链调整（`normalization/` 策略变更） | 影响所有下游结果 |
+| 校验规则核心逻辑变更（`validation/` 规则引擎本体） | 需多步骤因果推理 |
+| 安全/数据完整性敏感代码 | 不可出错 |
+| 需求模糊、多方案 tradeoff | 需判断力和用户沟通 |
+
+### 维护期 Agent 降级
+
+部分 agent 维护期不需要 Pro 模型：
+
+| Agent | 开发期模型 | **维护期模型** | 降级理由 |
+|-------|-----------|---------------|---------|
+| `orchestrator` | haiku (Flash) | **haiku** | 不变 |
+| `etl_ingestion` | haiku (Flash) | **haiku** | 不变 |
+| `algorithm` | sonnet (Pro) | **haiku (Flash)** | 归一化/BOM/校验模块稳定，增量规则不需要深度推理 |
+| `code_guardian` | sonnet (Pro) | **haiku (Flash)** | 维护期改动小而模式固定；发现可疑点可要求主对话复查 |
+| `web_ui` | haiku (Flash) | **haiku** | 不变 |
+| `release_docs` | haiku (Flash) | **haiku** | 不变 |
+| `research` | haiku (Flash) | **haiku** | 不变 |
+
+> **原则：** 维护期仅主对话使用 Pro，所有 agent 使用 Flash。如需 Pro 审查，由 `code_guardian` 完成 flash review 后请求主对话复查。
+
 ### 动态升级规则
 
 Flash agent 遇到以下情况时**不应自行决策**，应报告主对话（Pro）处理：
@@ -326,6 +373,7 @@ Flash agent 遇到以下情况时**不应自行决策**，应报告主对话（P
 2. **跨模块影响** — 改动波及范围超出当前 agent 授权模块
 3. **意外复杂度** — 实际工作量明显超出初始估计
 4. **安全/数据完整性风险** — 涉及数据迁移、破坏性变更
+5. **归一化/校验规则核心逻辑变更** — 影响所有下游输出，flash 不应擅自修改回退链或规则引擎
 
 ### 分析类任务：两段式工作流
 
@@ -366,3 +414,20 @@ Flash agent 遇到以下情况时**不应自行决策**，应报告主对话（P
 - DWG AC1032 (AutoCAD 2018+) 需要 ODA Converter，当前不可用
 - `examples/` 和 `reference/` 不提交 Git（已在 .gitignore）
 - Marker 模型缓存: `~/.cache/huggingface` (Linux) / `C:\Users\<user>\AppData\Local\datalab` (Windows)
+
+### 维护期模型速查
+
+**做任何改动前先问：这是维护期吗？** 如果是，优先派 Flash agent：
+
+| 工作类型 | 谁来干 | 注意 |
+|---------|--------|------|
+| 加个字段 / 加个配置项 | Flash agent 或主对话直接做 | 不用 Pro |
+| 修改 Web 页面 / Flask 路由 | `web_ui` agent (Flash) | 不用 Pro |
+| 补测试用例 | Flash agent | 接口已定型 |
+| 修一个 Bug（根因已知） | Flash agent | 不明显再升级 Pro |
+| 更新文档 / CLAUDE.md | 主对话直接改（这是文档） | 主对话改 CLAUDE.md 本身就是 Pro，但小改动成本低 |
+| 架构决策 / 归一化链改动 | 主对话 (Pro) | 保留 |
+| 新增模块 / 新 Protocol | 主对话 (Pro) | 保留 |
+| 探索代码 / 定位问题 | `research` agent (Flash) | 本来就用 Flash |
+
+**主对话的自觉：** 维护期主对话减少非必要的 Pro 级深度思考，遇到简单问题直接做（如上面这个 CLAUDE.md 编辑），遇到复杂问题才派 Flash agent 或切换到 Pro 推理模式。
