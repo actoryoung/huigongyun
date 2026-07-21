@@ -75,6 +75,153 @@
 
 **核心原则：** Parser → Normalizer → Generator → Pricer → Validator → Exporter 均可独立替换，通过 `interfaces.py` 协议连接。
 
+## HH 平台集成 (2026-07-21)
+
+`HH/` 是慧工云的 Django Web 平台（fork 自合作方），作为前端壳对接本项目的解析引擎。与 HH 项目负责人的协作方式为 **PR 提交 → review → 合入**，不直接 push。
+
+### HH 项目结构
+
+```
+HH/                         # Django 5.2 项目
+  manage.py                 # Django CLI 入口
+  HH/settings.py            # 配置（MySQL 数据库，DEBUG=True）
+  HH/urls.py                # 路由表
+  app01/                    # 主应用
+    models.py               # 数据模型（当前为空，待定义）
+    views.py                # 视图层（登录/注册/工作台/文件上传/analyze）
+    service.py              # 业务层 — analyze_files() 返回 mock 数据，是引擎接入点
+    templates/              # 前端页面（login/register/index/workspace/back）
+    static/                 # CSS/JS 静态资源
+    examples/               # 样例数据（项目A/B/C/D，与主项目 examples/ 对应）
+  upload/                   # 用户上传文件存储目录
+```
+
+### HH 接口契约（analyze 端点）
+
+HH 的 `/analyze/` 是文件上传→AI 解析的核心端点，当前 `service.py` 返回 hardcoded mock。**这是本项目的接入点。**
+
+**输入：** `POST /analyze/`，`multipart/form-data`，字段 `files`（多文件上传）
+
+**输出：** JSON `{success: bool, message: str, sheets: dict}`
+
+**sheets 数据格式（两层级）：**
+
+```
+sheets = {
+    "total": {                          # 项目汇总表（必有，key 固定为 "total"）
+        "title": "报价总表",
+        "columnType": "cabinet",        # 汇总层级：按柜体展示
+        "rows": [
+            {   # 普通行
+                "type": "item",
+                "colCabinet": "A",      # 柜号
+                "name": "列头柜",        # 柜名
+                "model": "Prisma",      # 柜型
+                "unit": "台",
+                "qty": 4,               # 台数
+                "price": 24812.66,      # 单价
+                "costTotal": 87957.64,  # 合计
+                "size": "800*300*1200*2200",
+                "category": "",
+                "drawingNo": "",
+            },
+            {"type": "empty"},                          # 空行（分隔）
+            {"type": "subtotal", "name": "小计"},        # 小计行
+            {"type": "fee", "name": "包装费", ...},      # 费用行
+            {"type": "grandtotal"},                      # 总计行
+        ],
+    },
+    "cab_A": {                          # 柜体明细表（按柜号动态 key）
+        "title": "A 列头柜",
+        "cabinetNo": "A",
+        "cabinetName": "列头柜",
+        "columnType": "component",      # 明细层级：按元器件展示
+        "rows": [
+            {
+                "type": "item",
+                "name": "塑壳断路器",    # 物料名
+                "model": "NSX250F 3P 250A",  # 型号/规格
+                "factory": "施耐德",     # 品牌/厂家
+                "unit": "只",
+                "qty": 6,
+                "price": 1280.00,       # 报价单价
+                "costPrice": 980.00,    # 成本单价
+                "quoteRate": "1.30",    # 报价系数
+                "listPrice": 1600.00,   # 面价
+                "discountRate": "0.80", # 折扣率
+                "category": "元件",     # 物料分类
+                "materialCode": "",     # 物料编码
+                "origin": "上海",       # 产地
+            },
+            {"type": "empty"},
+            {"type": "subtotal", "name": "小计"},
+            {"type": "fee", "name": "人工费", "total": 500.00},
+            {"type": "grandtotal"},
+        ],
+    },
+    # cab_B, cab_C, ... 每个柜体一张表
+}
+```
+
+**行类型枚举：** `item`（数据行）| `empty`（空行分隔）| `subtotal`（小计）| `fee`（费用）| `grandtotal`（总计）
+
+### 集成方案
+
+**策略：引擎嵌入（Library），非微服务。** huigongyun 作为 HH 的 Python 依赖，`service.py` 直接调用 pipeline。
+
+```
+HH/app01/service.py
+  analyze_files(files)
+    → 保存上传文件到临时目录
+    → 调用 huigongyun.pipeline.run(temp_dir)        # ← 本项目引擎
+    → ProjectResult → sheets 格式转换 (adapter)     # ← 待实现
+    → 返回 {success, message, sheets}
+```
+
+**映射关系（huigongyun → HH sheets）：**
+
+| huigongyun 类型 | HH sheet | HH 字段 |
+|----------------|----------|---------|
+| `CabinetRecord` | `total` (columnType: cabinet) | colCabinet, name, model, qty, price, costTotal, size |
+| `BomLine` (per cabinet) | `cab_{柜号}` (columnType: component) | name, model, factory, unit, qty, price, costPrice, category |
+| `QuoteLine` | `cab_{柜号}` rows | price, costPrice, quoteRate, listPrice, discountRate |
+
+### 待实现项（按优先级）
+
+| # | 任务 | 说明 | 依赖 |
+|---|------|------|------|
+| 1 | **数据格式适配器** | `ProjectResult → HH sheets` 转换函数，位于 `src/adapters/hh_adapter.py` | 无 |
+| 2 | **HH service.py 接入** | 替换 mock 为真实 pipeline 调用 | #1 |
+| 3 | **HH models.py 定义** | Django ORM 模型（ParseTask / Project / CabinetBOM） | #1 |
+| 4 | **价格表数据接入** | 真实价格数据填充 unit_price | 等用户提供价格表 |
+| 5 | **Vision LLM 激活** | API Key 配置后 PDF CAD 图纸识别 | 等用户配置 API Key |
+
+### 协作原则（PR-first）
+
+> ⚠️ **HH 项目是 fork 的合作方仓库。所有对 HH/ 的修改必须遵循 PR 流程，禁止直接 push 到 HH 的 master/main。**
+
+| 规则 | 说明 |
+|------|------|
+| **分支开发** | 每个功能在 HH/ 内创建独立分支，如 `hh-feat/adapter`、`hh-feat/models` |
+| **PR 提交** | 功能完成后向 HH 上游仓库提交 PR，等待负责人 review |
+| **接口先行** | 先与 HH 负责人确认接口契约（sheets 格式、字段语义）再编码 |
+| **不破坏现有路由** | HH 的 URL 路由 / 视图签名 / 模板结构 尽量不改，只扩展 |
+| **数据格式兼容** | adapter 输出必须严格匹配 service.py 中已定义的 sheets 结构 |
+| **本项目的独立性** | huigongyun 引擎本身不依赖 HH，保持独立可运行（`webapp.py` + CLI） |
+
+### HH 与 webapp.py 的关系
+
+| 维度 | `webapp.py` (Flask) | `HH/` (Django) |
+|------|---------------------|----------------|
+| 定位 | 开发期演示壳 + 人工修正回灌 | 生产级多用户 Web 平台 |
+| 用户体系 | 无（单机演示） | Django auth（注册/登录/角色） |
+| 数据持久化 | 可选 PostgreSQL | MySQL，含任务历史 |
+| 前端 | 简单表单 | 完整的 workspace UI（拖拽上传/在线编辑/导出） |
+| 引擎调用 | 直接调用 pipeline | 通过 adapter 调用 pipeline |
+| 维护状态 | 保留，用于本地开发调试 | 未来的主力交付界面 |
+
+两者长期共存：`webapp.py` 作为本地开发/演示工具保留；HH 作为生产级 SaaS 平台对外交付。
+
 ## 目录结构
 
 ```
