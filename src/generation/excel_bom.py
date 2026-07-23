@@ -18,7 +18,7 @@ from ..models import BomLine, MaterialRecord, ProjectDocument, ProjectResult, So
 class ExcelCabinetAndBomExtractor:
     """Build cabinet and BOM records from parsed Excel sheet metadata."""
 
-    CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名")
+    CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名", "设备位号")
     CABINET_TYPE_KEYS = ("柜型", "cabinet_type", "类型")
     RATED_CURRENT_KEYS = ("额定电流", "电流", "In", "额定电流(A)")
     QUANTITY_KEYS = ("数量", "qty", "数量(台)", "件数")

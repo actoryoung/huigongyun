@@ -4,7 +4,7 @@
 
 低压电气成套智能报价清单生成系统 MVP。从非结构化资料（DWG/PDF/Excel/Word/图片）自动生成逐柜 BOM、项目汇总 BOM、报价清单与校验报告。目标是输出可追溯、支持人工修正、可导出的结构化结果。
 
-## 当前状态 (2026-07-01)
+## 当前状态 (2026-07-21)
 
 **Phase 1 & 2 已完成。Phase 3a/3b/3c 已交付。Phase 3d 已实现（可选依赖）。项目进入收尾/维护阶段。**
 
@@ -43,7 +43,7 @@
 | 模块 | 状态 | 说明 |
 |------|------|------|
 | 版本差异 — Web UI | ❌ | diff 可视化待做 |
-| Vision LLM API Key 配置 | ⏳ | 待配置 OPENAI/ANTHROPIC/GOOGLE_API_KEY，激活 PDF CAD 图纸识别 |
+| Vision LLM API Key 配置 | ✅ | 第三方 OpenAI 兼容 API + gpt-5.6-luna，compat 模式已激活 |
 | 价格表数据接入 | ⏳ | 待用户提供价格表文件，填充 unit_price + price_source |
 | DWG AC1032 | ⏸ | 需ODA Converter (商业许可)，LibreDWG不支持 |
 | 复杂商务报价 | ⏸ | 税率/折扣/运费/利润模型，不在当前scope |
@@ -56,7 +56,7 @@
 3. ~~风险分级体系~~ ✅ (validation/risk.py RiskClassifier + ValidationIssue.risk_level)
 4. ~~历史检索 RAG~~ ✅ (retrieval/faiss_index.py FaissCaseRetriever)
 5. **价格表数据接入** — 待用户提供价格表文件
-6. **Vision LLM API Key 配置** — 激活 PDF CAD 图纸 Vision LLM 识别路径
+6. ~~Vision LLM API Key 配置~~ ✅ — 第三方 OpenAI 兼容 API (gpt-5.6-luna)，compat 模式已激活
 
 ## 架构概览
 
@@ -287,25 +287,29 @@ reference/               # 参考开源项目（MinerU/marker，不提交Git）
 .claude/                 # Claude Code 配置（settings/agents/workflows/memory）
 ```
 
-## PDF 解析流水线（五级回退）
+## PDF 解析流水线（五级回退，2026-07-21 调整顺序）
 
 ```
 PdfSourceParser.parse(pdf_path)
   1. 文本层检测 (pdfminer.six)
      ├─ 有文本层 → Marker 增强提取（免费ML，表格~89%精度）
      └─ 无文本层（CAD矢量/扫描件）→ 2-5 逐级回退
-  2. Marker 本地 OCR   — 免费CPU，内部渲染+ML，无文本层也可尝试
-  3. Vision LLM        — GPT-4o/Claude/Gemini，CAD矢量PDF主力（需API Key）
+  2. Vision LLM        — CAD矢量PDF主力，提取结构化柜体/物料数据
+  3. Marker 本地 OCR   — 免费CPU回退，内部渲染+ML
   4. ocrmypdf          — 扫描件OCR引擎（可选依赖）
   5. Tesseract         — 传统OCR最终兜底（可选依赖，pdf2image + pytesseract）
 ```
 
 **环境变量配置：**
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` → Vision LLM 后端选择
+- `OPENAI_API_KEY` — OpenAI API Key（或第三方兼容 API 的 Key）
+- `OPENAI_BASE_URL` — 第三方 OpenAI 兼容 API 地址（如 `https://fast.sbbbbbbbbb.xyz/v1`）
+- `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` → Vision LLM 后端选择
 - `VISION_LLM_PROVIDER` → 指定后端 (openai/anthropic/google，默认 openai)
-- `VISION_LLM_MODEL` → 覆盖默认模型名
+- `VISION_LLM_MODEL` → 覆盖默认模型名（当前使用 `gpt-5.6-luna`）
 - `VISION_LLM_MAX_TOKENS` → 最大输出 token (默认 4096)
 - `VISION_LLM_TEMPERATURE` → 采样温度 (默认 0.0)
+- `VISION_LLM_OPENAI_COMPAT=1` → 第三方 API compat 模式（不发送 `response_format`，改 prompt 注入 JSON Schema）
+- 图片尺寸自动上限 1600px（避免第三方 API 超时）
 - 无 API Key 时自动跳过 Vision LLM，使用免费路径 (Marker/Tesseract)
 
 ## 工程原则

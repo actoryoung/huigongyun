@@ -46,8 +46,10 @@ class CabinetIndexBuilder:
     stages can still carry explicit markers without guessing numeric values.
     """
 
-    CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名")
+    CABINET_KEYS = ("柜号", "cabinet_no", "柜位", "柜体", "柜名", "设备位号")
     CABINET_TYPE_KEYS = ("柜型", "cabinet_type", "类型")
+    # 用于判断一行是否为"空柜位"（有位号但无物料数据）
+    _CONTENT_KEYS = ("物料名称", "元器件名称", "名称", "元件名称", "设备名称", "物料", "品名")
     RATED_CURRENT_KEYS = ("额定电流", "电流", "In", "额定电流(A)")
     PRICE_SHEET_HINTS = ("价格表", "报价表", "单价表", "价格清单")
     DIMENSIONS_KEYS = ("外形尺寸", "尺寸", "柜体尺寸", "dimensions")
@@ -95,6 +97,10 @@ class CabinetIndexBuilder:
                             "marker": "cabinet_no:UNASSIGNED",
                         }
                     )
+
+                # 跳过空模板行（有位号但无任何物料数据）
+                if cabinet_no != "UNASSIGNED" and not self._first_text(record, self._CONTENT_KEYS):
+                    continue
 
                 cabinet = cabinet_index.get(cabinet_no)
                 if cabinet is None:

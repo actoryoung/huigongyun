@@ -234,19 +234,21 @@ class PdfOcrParser(PdfSourceParser):
         if not ocr_fallback:
             return base_doc
 
-        # Stage 2: Marker local OCR (free — try even on no-text-layer PDFs)
-        if marker_enabled and not base_doc.metadata.get("marker_applied"):
-            marker_result = self._try_marker_ocr(str(path))
-            if marker_result is not None:
-                return marker_result
-
-        # Stage 3: Vision LLM (primary paid path for CAD vector PDFs)
+        # Stage 2: Vision LLM (primary paid path for CAD vector PDFs).
+        # Moved ahead of Marker because Vision LLM extracts structured
+        # data (cabinets, materials) while Marker only produces raw text.
         if vision_llm_enabled:
             vision_result = self._try_vision_llm_ocr(
                 str(path), base_doc, max_pages=vision_llm_max_pages
             )
             if vision_result is not None:
                 return vision_result
+
+        # Stage 3: Marker local OCR (free CPU fallback)
+        if marker_enabled and not base_doc.metadata.get("marker_applied"):
+            marker_result = self._try_marker_ocr(str(path))
+            if marker_result is not None:
+                return marker_result
 
         # Stage 4: ocrmypdf (good for scanned documents)
         ocrmypdf_result = self._try_ocrmypdf(str(path))
@@ -330,6 +332,24 @@ class PdfOcrParser(PdfSourceParser):
         if not images:
             return None
 
+        # Cap image dimensions to keep base64 payload manageable for
+        # third-party API proxies and avoid connection timeouts.
+        # 300-DPI A3 page ≈ 4962×3508 px (~6 MB base64) → capped to
+        # 1600 px max dimension ≈ 800 KB base64.
+        try:
+            from PIL.Image import Resampling
+            _LANCZOS = Resampling.LANCZOS
+        except ImportError:
+            _LANCZOS = 1  # PIL < 10 fallback
+        _VISION_MAX_DIM = 1600
+        for i in range(len(images)):
+            w, h = images[i].size
+            if max(w, h) > _VISION_MAX_DIM:
+                ratio = _VISION_MAX_DIM / max(w, h)
+                images[i] = images[i].resize(
+                    (int(w * ratio), int(h * ratio)), _LANCZOS
+                )
+
         # Limit pages to control API cost
         page_count = min(len(images), max_pages)
         all_cabinets: List[Any] = []
@@ -389,6 +409,7 @@ class PdfOcrParser(PdfSourceParser):
                 "quantity": m.quantity,
                 "brand": m.brand,
                 "confidence": m.confidence,
+                "cabinet_ref": _parse_cabinet_ref_from_remarks(m.remarks),
                 "remarks": m.remarks,
             }
             for m in all_materials
@@ -498,6 +519,27 @@ class PdfOcrParser(PdfSourceParser):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _parse_cabinet_ref_from_remarks(remarks: str | None) -> str:
+    """Extract cabinet_ref from the remarks field of a MaterialRecord.
+
+    ``_build_material_records`` in vision_llm.py stores the cabinet_ref as
+    ``"cabinet_ref: <value>"`` inside ``MaterialRecord.remarks``.  This helper
+    unpacks that value so it can be serialised as a dedicated ``cabinet_ref``
+    key in metadata, keeping the data flow through multi_extractor intact.
+    """
+    if not remarks:
+        return ""
+    prefix = "cabinet_ref: "
+    idx = remarks.find(prefix)
+    if idx == -1:
+        # Table-extracted materials may have a different remark format;
+        # return the first 60 chars as a hint for fuzzy matching.
+        return remarks[:60]
+    rest = remarks[idx + len(prefix):]
+    # Strip trailing whitespace / punctuation
+    return rest.strip().rstrip(",;.")
 
 
 def _detect_vision_llm_providers() -> List[str]:

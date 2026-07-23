@@ -193,12 +193,25 @@ class OpenAIBackend:
     """GPT-4o / GPT-4o-mini Vision backend.
 
     Requires ``OPENAI_API_KEY`` environment variable and the ``openai`` package.
+
+    Compat mode (for third-party OpenAI-compatible APIs):
+        Set ``VISION_LLM_OPENAI_COMPAT=1`` to skip native ``response_format``
+        (which many third-party proxies don't support) and instead inject the
+        JSON Schema into the system prompt.  Also set ``OPENAI_BASE_URL`` to
+        point to the third-party endpoint.
     """
 
     def __init__(self) -> None:
         self._api_key: Optional[str] = os.environ.get("OPENAI_API_KEY")
         self._model: str = _OPENAI_MODEL
         self._client: Any = None
+        self._compat_mode: bool = os.environ.get("VISION_LLM_OPENAI_COMPAT", "").strip() in (
+            "1", "true", "yes", "on"
+        )
+        # Timeout for third-party APIs (default 120s; override with VISION_LLM_TIMEOUT)
+        self._timeout: float = float(os.environ.get("VISION_LLM_TIMEOUT", "120"))
+        # Retry on connection errors (third-party APIs can be flaky)
+        self._max_retries: int = int(os.environ.get("VISION_LLM_RETRIES", "2"))
 
     def _ensure_client(self) -> Any:
         if self._client is not None:
@@ -214,7 +227,9 @@ class OpenAIBackend:
             raise RuntimeError(
                 "OPENAI_API_KEY environment variable is required for OpenAI Vision backend."
             )
-        self._client = OpenAI(api_key=self._api_key)
+        # OPENAI_BASE_URL is read automatically by the OpenAI SDK from the
+        # environment — no explicit base_url parameter needed here.
+        self._client = OpenAI(api_key=self._api_key, timeout=self._timeout, max_retries=0)
         return self._client
 
     def analyze_image(
@@ -227,8 +242,19 @@ class OpenAIBackend:
         temperature: float,
     ) -> VisionLLMResponse:
         client = self._ensure_client()
+
+        # Compat mode: inject JSON Schema into the system prompt (like the
+        # Anthropic backend does) because many third-party proxies don't
+        # support native ``response_format``.
+        effective_system = system_prompt
+        if self._compat_mode and json_schema is not None:
+            effective_system += (
+                "\n\n**你必须严格按以下 JSON Schema 输出，只输出 JSON，不要包含任何解释文字：**\n"
+                + json.dumps(json_schema, ensure_ascii=False, indent=2)
+            )
+
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": effective_system},
             {
                 "role": "user",
                 "content": [
@@ -248,7 +274,7 @@ class OpenAIBackend:
             "temperature": temperature,
         }
 
-        if json_schema is not None:
+        if not self._compat_mode and json_schema is not None:
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -258,7 +284,29 @@ class OpenAIBackend:
                 },
             }
 
-        resp = client.chat.completions.create(**kwargs)
+        resp = None
+        last_error: Optional[str] = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                resp = client.chat.completions.create(**kwargs)
+                break
+            except Exception as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                if attempt < self._max_retries:
+                    import time as _time
+                    wait = (attempt + 1) * 5  # 5, 10, 15, … seconds back-off
+                    _time.sleep(wait)
+                    continue
+                # Last attempt failed — propagate to outer handler
+                raise
+
+        if resp is None:
+            # Shouldn't happen, but guard against missing retry coverage
+            return VisionLLMResponse(
+                raw_text="",
+                error=last_error or "No response from Vision LLM",
+            )
+
         content: str = resp.choices[0].message.content or ""
         parsed = _parse_json_from_text(content)
 
@@ -510,11 +558,11 @@ def _parse_json_from_text(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _image_to_base64(image: Any, image_format: str = "PNG") -> tuple[str, str]:
+def _image_to_base64(image: Any, image_format: str = "JPEG") -> tuple[str, str]:
     """Convert a PIL Image or file path to base64-encoded string.
 
     Returns:
-        (base64_string, media_type) — e.g. ("iVBOR...", "image/png")
+        (base64_string, media_type) — e.g. ("iVBOR...", "image/jpeg")
     """
     from PIL import Image
 
@@ -533,11 +581,16 @@ def _image_to_base64(image: Any, image_format: str = "PNG") -> tuple[str, str]:
         media_type = suffix_map.get(path.suffix.lower(), "image/png")
         return base64.b64encode(raw).decode("ascii"), media_type
 
-    # PIL Image
+    # PIL Image — use JPEG for smaller payload (third-party APIs often have
+    # low body-size limits; PNG at 300-DPI CAD page can be >5 MB base64).
     buf = io.BytesIO()
-    fmt = image_format or "PNG"
-    image.save(buf, format=fmt)
-    return base64.b64encode(buf.getvalue()).decode("ascii"), f"image/{fmt.lower()}"
+    fmt = (image_format or "JPEG").upper()
+    save_kwargs: dict[str, Any] = {"format": fmt}
+    if fmt == "JPEG":
+        save_kwargs["quality"] = 85
+    image.save(buf, **save_kwargs)
+    media_type = f"image/{fmt.lower()}"
+    return base64.b64encode(buf.getvalue()).decode("ascii"), media_type
 
 
 # ---------------------------------------------------------------------------
